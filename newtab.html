@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>新しいタブ</title>
+    <link rel="stylesheet" href="src/styles.css">
+    <script src="src/newtab.js" defer></script>
+  </head>
+  <body class="newtab-shell">
+    <main class="newtab-page">
+      <header class="newtab-header">
+        <div class="newtab-clock" aria-label="現在時刻">
+          <time id="newtabTime" datetime="">--:--</time>
+          <span id="newtabDate"></span>
+        </div>
+        <div class="newtab-actions">
+          <label class="newtab-search">
+            <span>検索</span>
+            <input id="newtabSearch" type="search" autocomplete="off" placeholder="ブックマークを検索">
+          </label>
+          <button id="calendarToggleButton" type="button" aria-pressed="false">カレンダー</button>
+          <button id="backgroundToggleButton" type="button" aria-pressed="false">背景</button>
+          <button id="openShelfPageButton" type="button">全体表示</button>
+        </div>
+      </header>
+
+      <section id="calendarPanel" class="newtab-calendar-panel hidden" aria-label="カレンダー">
+        <div class="newtab-calendar-header">
+          <button id="calendarPrevButton" type="button" aria-label="前の月">‹</button>
+          <strong id="calendarMonth"></strong>
+          <button id="calendarNextButton" type="button" aria-label="次の月">›</button>
+          <button id="calendarTodayButton" type="button">今日</button>
+        </div>
+        <div id="calendarWeekdays" class="newtab-calendar-weekdays"></div>
+        <div id="calendarGrid" class="newtab-calendar-grid"></div>
+      </section>
+
+      <section id="backgroundPanel" class="newtab-background-panel hidden" aria-label="背景画像">
+        <div class="newtab-background-controls">
+          <label class="newtab-background-input">
+            <span>画像URL</span>
+            <input id="backgroundImageInput" type="url" inputmode="url" placeholder="https://example.com/image.jpg">
+          </label>
+          <button id="saveBackgroundButton" type="button">適用</button>
+          <label class="newtab-file-button">
+            <input id="backgroundFileInput" type="file" accept="image/*">
+            <span>画像を追加</span>
+          </label>
+          <button id="backgroundDimButton" type="button" aria-pressed="false">暗くする</button>
+          <button id="clearBackgroundButton" type="button">解除</button>
+        </div>
+        <div class="newtab-background-saved">
+          <div class="newtab-background-saved-heading">
+            <span id="backgroundSavedHeading">保存画像</span>
+          </div>
+          <div id="backgroundGallery" class="newtab-background-gallery"></div>
+        </div>
+      </section>
+
+      <section class="newtab-section">
+        <div class="newtab-section-heading">
+          <h2 id="primaryHeading">よく使うもの</h2>
+          <span id="primaryCount"></span>
+        </div>
+        <div id="primaryGrid" class="newtab-grid"></div>
+        <p id="primaryEmpty" class="newtab-empty hidden">まだ表示できるブックマークがありません。</p>
+      </section>
+
+      <section id="recentSection" class="newtab-section newtab-section-secondary">
+        <div class="newtab-section-heading">
+          <h2 id="recentHeading">最近追加</h2>
+          <span id="recentCount"></span>
+        </div>
+        <div id="recentGrid" class="newtab-grid newtab-grid-compact"></div>
+      </section>
+    </main>
+  </body>
+</html>

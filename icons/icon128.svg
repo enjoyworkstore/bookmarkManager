@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Bookmark Shelf">
+  <rect x="16" y="16" width="96" height="96" rx="18" fill="#0f766e"/>
+  <path d="M42 30h44v68L64 84 42 98V30z" fill="#fff7ed"/>
+  <path d="M42 30h44v18H42z" fill="#f59e0b"/>
+</svg>
