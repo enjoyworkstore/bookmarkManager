@@ -49,7 +49,7 @@
           </label>
           <div class="segmented" role="group" aria-label="表示比率">
             <button id="groupedViewButton" class="active" type="button" title="ブックマーク一覧を広く表示" aria-label="ブックマーク一覧を広く表示">▤</button>
-            <button id="listViewButton" type="button" title="よく使うものを広く表示" aria-label="よく使うものを広く表示">★</button>
+            <button id="listViewButton" type="button" title="よく使うものを広く表示" aria-label="よく使うものを広く表示"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bookmark-star-fill bookmark-star-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill-rule="evenodd" d="M2 15.5V2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13.5a.5.5 0 0 1-.74.439L8 13.069l-5.26 2.87A.5.5 0 0 1 2 15.5M8.16 4.1a.178.178 0 0 0-.32 0l-.634 1.285a.18.18 0 0 1-.134.098l-1.42.206a.178.178 0 0 0-.098.303L6.58 6.993c.042.041.061.1.051.158L6.39 8.565a.178.178 0 0 0 .258.187l1.27-.668a.18.18 0 0 1 .165 0l1.27.668a.178.178 0 0 0 .257-.187L9.368 7.15a.18.18 0 0 1 .05-.158l1.028-1.001a.178.178 0 0 0-.098-.303l-1.42-.206a.18.18 0 0 1-.134-.098z"/></svg></button>
           </div>
           <div class="segmented" role="group" aria-label="簡易表示切り替え">
             <button id="cardDensityButton" class="active" type="button" title="アイコン一覧表示" aria-label="アイコン一覧表示">◧</button>
@@ -70,7 +70,7 @@
           <button id="selectVisibleButton" class="icon-button" type="button" title="表示中をすべて選択" aria-label="表示中をすべて選択">☷</button>
           <button id="clearSelectionButton" class="icon-button" type="button" title="選択解除" aria-label="選択解除">×</button>
           <button id="batchMoveButton" class="icon-button" type="button" title="選択分をジャンル移動" aria-label="選択分をジャンル移動">⇄</button>
-          <button id="batchPinButton" class="icon-button" type="button" title="選択分を固定" aria-label="選択分を固定">★</button>
+          <button id="batchPinButton" class="icon-button" type="button" title="選択分を固定" aria-label="選択分を固定"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bookmark-star-fill bookmark-star-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill-rule="evenodd" d="M2 15.5V2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13.5a.5.5 0 0 1-.74.439L8 13.069l-5.26 2.87A.5.5 0 0 1 2 15.5M8.16 4.1a.178.178 0 0 0-.32 0l-.634 1.285a.18.18 0 0 1-.134.098l-1.42.206a.178.178 0 0 0-.098.303L6.58 6.993c.042.041.061.1.051.158L6.39 8.565a.178.178 0 0 0 .258.187l1.27-.668a.18.18 0 0 1 .165 0l1.27.668a.178.178 0 0 0 .257-.187L9.368 7.15a.18.18 0 0 1 .05-.158l1.028-1.001a.178.178 0 0 0-.098-.303l-1.42-.206a.18.18 0 0 1-.134-.098z"/></svg></button>
           <button id="batchUnpinButton" class="icon-button" type="button" title="選択分の固定解除" aria-label="選択分の固定解除">☆</button>
           <button id="batchDeleteButton" class="icon-button" type="button" title="選択分を削除" aria-label="選択分を削除">⌫</button>
         </section>
@@ -180,6 +180,7 @@
           <label class="settings-row">重ね表示の背景透明度
             <input id="overlayOpacityInput" type="range" min="45" max="98" step="1" value="86">
           </label>
+          <label class="check-row"><input id="requireCategorySelection" type="checkbox" checked>ジャンル選択まで一覧を表示しない</label>
           <label class="settings-row">カード幅
             <input id="cardSizeInput" type="range" min="150" max="280" step="10" value="205">
           </label>

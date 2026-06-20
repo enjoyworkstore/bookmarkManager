@@ -70,6 +70,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "record-bookmark-open") {
+    recordBookmarkOpen(message.bookmarkId).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    return true;
+  }
+
   if (message?.type === "open-bookmark-shelf") {
     openShelf({ tab: sender?.tab, preferSidePanel: true }).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
     return true;
@@ -89,6 +94,27 @@ async function patchShelfState(patch) {
   cachedState = nextState;
   await updateActionSidePanelBehavior(nextState).catch(() => {});
   return nextState;
+}
+
+async function recordBookmarkOpen(bookmarkId) {
+  const id = String(bookmarkId || "").trim();
+  if (!id) return;
+  const result = await chrome.storage.local.get(STORAGE_KEY).catch(() => ({}));
+  const currentState = result[STORAGE_KEY] || {};
+  const usage = currentState.usage && typeof currentState.usage === "object" ? currentState.usage : {};
+  const currentUsage = usage[id] || {};
+  const nextState = {
+    ...currentState,
+    usage: {
+      ...usage,
+      [id]: {
+        count: (Number(currentUsage.count) || 0) + 1,
+        lastOpenedAt: Date.now()
+      }
+    }
+  };
+  await chrome.storage.local.set({ [STORAGE_KEY]: nextState });
+  cachedState = nextState;
 }
 
 async function openShelf(options = {}) {

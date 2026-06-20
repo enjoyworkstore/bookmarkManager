@@ -31,6 +31,8 @@ const UI_TEXT = {
     selected: "選択中",
     today: "今日",
     frequent: "よく使うもの",
+    pinnedBadge: "固定",
+    frequentBadge: "よく使う",
     searchResults: "検索結果",
     recent: "最近追加",
     empty: "まだ表示できるブックマークがありません。",
@@ -52,6 +54,8 @@ const UI_TEXT = {
     selected: "Selected",
     today: "Today",
     frequent: "Frequently used",
+    pinnedBadge: "Pinned",
+    frequentBadge: "Frequent",
     searchResults: "Search results",
     recent: "Recently added",
     empty: "No bookmarks to show yet.",
@@ -353,19 +357,32 @@ function createBookmarkLink(bookmark) {
   link.href = bookmark.url;
   link.title = bookmark.url;
   const host = safeHost(bookmark.url);
+  const pinned = !!state.pinned[bookmark.id];
+  const useCount = Number(state.usage[bookmark.id]?.count) || 0;
+  const kind = pinned ? "pinned" : useCount ? "frequent" : "regular";
+  link.dataset.kind = kind;
   link.innerHTML = `
     <span class="newtab-favicon"><img alt="" loading="lazy"></span>
     <span class="newtab-bookmark-text">
       <span class="newtab-bookmark-title"></span>
       <span class="newtab-bookmark-meta"></span>
     </span>
+    <span class="newtab-bookmark-badge"></span>
   `;
   link.querySelector("img").src = faviconUrl(bookmark.url);
   link.querySelector(".newtab-bookmark-title").textContent = bookmark.title || host || bookmark.url;
   link.querySelector(".newtab-bookmark-meta").textContent = host || bookmark.folderPath || bookmark.url;
+  const badge = link.querySelector(".newtab-bookmark-badge");
+  if (kind === "pinned") {
+    badge.textContent = t("pinnedBadge");
+  } else if (kind === "frequent") {
+    badge.textContent = t("frequentBadge");
+  } else {
+    badge.remove();
+  }
   link.addEventListener("click", async (event) => {
     event.preventDefault();
-    await recordBookmarkOpen(bookmark).catch(() => {});
+    queueBookmarkOpenRecord(bookmark);
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       await openBookmarkInNewTab(bookmark.url, !event.ctrlKey && !event.metaKey).catch(() => {});
       return;
@@ -375,11 +392,15 @@ function createBookmarkLink(bookmark) {
   link.addEventListener("auxclick", (event) => {
     if (event.button !== 1) return;
     event.preventDefault();
-    recordBookmarkOpen(bookmark)
-      .then(() => openBookmarkInNewTab(bookmark.url, false))
-      .catch(() => {});
+    queueBookmarkOpenRecord(bookmark);
+    openBookmarkInNewTab(bookmark.url, false).catch(() => {});
   });
   return link;
+}
+
+function queueBookmarkOpenRecord(bookmark) {
+  chrome.runtime.sendMessage({ type: "record-bookmark-open", bookmarkId: bookmark.id })
+    .catch(() => recordBookmarkOpen(bookmark).catch(() => {}));
 }
 
 async function recordBookmarkOpen(bookmark) {

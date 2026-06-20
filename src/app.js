@@ -1,6 +1,7 @@
 const STORAGE_KEY = "bookmarkShelfState";
 const THEME_CACHE_KEY = "bookmarkShelfTheme";
 const DEFAULT_CATEGORIES = ["未分類", "開発", "AI", "仕事", "資料", "動画", "買い物", "ニュース", "SNS", "あとで読む"];
+const DEFAULT_CONCRETE_CATEGORY = "未分類";
 
 const DEFAULT_STATE = {
   categories: {},
@@ -10,7 +11,8 @@ const DEFAULT_STATE = {
   customCategories: [],
   hiddenCategories: [],
   categoryOrder: [],
-  selectedCategory: "未分類",
+  selectedCategory: "all",
+  requireCategorySelection: true,
   layout: "grouped",
   panelRatio: "bookmarks",
   density: "cards",
@@ -36,6 +38,7 @@ const DEFAULT_STATE = {
   openBehavior: "new-tab-close"
 };
 
+const BOOKMARK_STAR_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bookmark-star-fill bookmark-star-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill-rule="evenodd" d="M2 15.5V2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13.5a.5.5 0 0 1-.74.439L8 13.069l-5.26 2.87A.5.5 0 0 1 2 15.5M8.16 4.1a.178.178 0 0 0-.32 0l-.634 1.285a.18.18 0 0 1-.134.098l-1.42.206a.178.178 0 0 0-.098.303L6.58 6.993c.042.041.061.1.051.158L6.39 8.565a.178.178 0 0 0 .258.187l1.27-.668a.18.18 0 0 1 .165 0l1.27.668a.178.178 0 0 0 .257-.187L9.368 7.15a.18.18 0 0 1 .05-.158l1.028-1.001a.178.178 0 0 0-.098-.303l-1.42-.206a.18.18 0 0 1-.134-.098z"/></svg>`;
 const OPEN_BEHAVIOR_ORDER = ["new-tab-close", "same-tab-keep", "same-tab-close"];
 const OPEN_BEHAVIOR_META = {
   "new-tab-close": { icon: "↗", labelKey: "behaviorNewTabClose" },
@@ -113,9 +116,13 @@ const LINK_CHECK_CONCURRENCY = 5;
 const LINK_CHECK_TIMEOUT_MS = 9000;
 const RECENT_BOOKMARK_LIMIT = 12;
 const SAVED_VIEW_LIMIT = 12;
+const DEFERRED_PINNED_LIMIT = 16;
 const SECTION_PAGE_SIZE = 50;
 const INITIAL_SECTION_PAGE_SIZE = 12;
 const CARD_RENDER_CHUNK_SIZE = 8;
+const LIGHTWEIGHT_SECTION_PAGE_SIZE = 100;
+const LIGHTWEIGHT_INITIAL_SECTION_PAGE_SIZE = 48;
+const LIGHTWEIGHT_CARD_RENDER_CHUNK_SIZE = 28;
 const RENDER_DEBOUNCE_MS = 120;
 const SAVE_DEBOUNCE_MS = 220;
 const RENDER_CACHE_LIMIT = 48;
@@ -207,6 +214,7 @@ const UI_TEXT = {
     settingsHeading: "設定",
     settingsNote: "設定は基本的にすぐ反映されます。フローティング起動ボタンは左クリックで開き、右クリックで縮小表示を切り替え、ドラッグで位置を動かせます。フローティングボタンが出ない既存タブはページを再読み込みしてください。brave:// などの内部ページには表示できません。",
     cardWidth: "カード幅",
+    requireCategorySelection: "ジャンル選択まで一覧を表示しない",
     launchMode: "起動方法",
     launchSidepanel: "サイドバー",
     launchOverlay: "サイト上に重ねる",
@@ -244,7 +252,7 @@ const UI_TEXT = {
     noHistory: "まだ履歴がありません。よく開くブックマークはここに表示されます。",
     noRecent: "最近追加されたブックマークがありません。",
     noBookmarks: "条件に合うブックマークがありません。",
-    selectGenrePrompt: "ジャンルを選ぶと、そのジャンルのブックマークだけ表示します。",
+    selectGenrePrompt: "ジャンルを選ぶと、ブックマーク一覧を表示します。",
     listTitle: ({ sort }) => `${sort}一覧`,
     searchResultsTitle: "検索結果",
     partialCount: ({ shown, total }) => `${shown}/${total}件`,
@@ -341,6 +349,7 @@ const UI_TEXT = {
     settingsHeading: "Settings",
     settingsNote: "Most settings apply immediately. Left-click the floating launcher to open it, right-click to switch compact display, and drag it to move its position. Reload existing tabs if the floating button does not appear. Browser internal pages such as brave:// cannot show it.",
     cardWidth: "Card width",
+    requireCategorySelection: "Hide bookmark list until a genre is selected",
     launchMode: "Launch mode",
     launchSidepanel: "Side panel",
     launchOverlay: "Overlay on site",
@@ -378,7 +387,7 @@ const UI_TEXT = {
     noHistory: "No history yet. Frequently opened bookmarks will appear here.",
     noRecent: "No recently added bookmarks yet.",
     noBookmarks: "No bookmarks match the current filters.",
-    selectGenrePrompt: "Choose a genre to show only that genre's bookmarks.",
+    selectGenrePrompt: "Choose a genre to show the bookmark list.",
     listTitle: ({ sort }) => `${sort} list`,
     searchResultsTitle: "Search results",
     partialCount: ({ shown, total }) => `${shown}/${total}`,
@@ -481,6 +490,7 @@ const elements = {
   floatingButtonColor: document.querySelector("#floatingButtonColor"),
   floatingButtonSize: document.querySelector("#floatingButtonSize"),
   overlayOpacityInput: document.querySelector("#overlayOpacityInput"),
+  requireCategorySelection: document.querySelector("#requireCategorySelection"),
   categoryOptions: document.querySelector("#categoryOptions"),
   saveButton: document.querySelector("#saveButton"),
   deleteButton: document.querySelector("#deleteButton")
@@ -521,6 +531,8 @@ let floatingDirtyFields = new Set();
 let categoryDirtyFields = new Set();
 let usageStateDirty = false;
 let lazyFaviconObserver = null;
+let quickStackDeferred = false;
+let quickStackHydrationTimer = 0;
 let hostCache = new Map();
 let normalizedUrlCache = new Map();
 let duplicateUrlSetCache = null;
@@ -559,6 +571,12 @@ function setControlLabel(element, text) {
     element.setAttribute("title", text);
   }
   element.setAttribute("aria-label", text);
+}
+
+function setBookmarkStarIcon(element) {
+  if (!element || element.dataset.icon === "bookmark-star") return;
+  element.innerHTML = BOOKMARK_STAR_ICON;
+  element.dataset.icon = "bookmark-star";
 }
 
 function setLabelText(input, text) {
@@ -607,6 +625,25 @@ function runWhenIdle(callback, timeout = 180) {
   return setTimeout(callback, Math.min(timeout, 80));
 }
 
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function cancelIdleTask(handle) {
+  if (!handle) return;
+  if ("cancelIdleCallback" in window) {
+    window.cancelIdleCallback(handle);
+    return;
+  }
+  clearTimeout(handle);
+}
+
+async function animateShelfClose() {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+  document.documentElement.dataset.closing = "true";
+  await wait(120);
+}
+
 function scheduleRender(delay = RENDER_DEBOUNCE_MS) {
   clearTimeout(renderDebounceTimer);
   renderDebounceTimer = setTimeout(() => {
@@ -620,6 +657,15 @@ function scheduleSaveState(delay = SAVE_DEBOUNCE_MS) {
   saveDebounceTimer = setTimeout(() => {
     saveDebounceTimer = 0;
     saveState().catch(() => {});
+  }, delay);
+}
+
+function scheduleQuickStackHydration(delay = 420) {
+  cancelIdleTask(quickStackHydrationTimer);
+  quickStackHydrationTimer = runWhenIdle(() => {
+    quickStackHydrationTimer = 0;
+    if (!quickStackDeferred || shouldDeferQuickStack()) return;
+    render({ preserveScroll: true });
   }, delay);
 }
 
@@ -670,6 +716,7 @@ function getCachedRenderData(key, factory) {
 }
 
 function scheduleInitialRenderExpansion() {
+  if (shouldDeferQuickStack()) return;
   if (!initialRenderLimited || initialExpansionQueued) return;
   initialExpansionQueued = true;
   runWhenIdle(() => {
@@ -729,7 +776,7 @@ function bindEvents() {
       batchMode = false;
       selectedIds.clear();
     }
-    refreshSelectionUi();
+    render({ preserveScroll: true });
   });
   elements.openBehaviorButton?.addEventListener("click", async () => {
     const currentIndex = OPEN_BEHAVIOR_ORDER.indexOf(state.openBehavior);
@@ -829,6 +876,14 @@ function bindEvents() {
     state.overlayOpacity = clampNumber(elements.overlayOpacityInput.value, 45, 98, DEFAULT_STATE.overlayOpacity);
     applyVisualSettings();
     scheduleSaveState();
+  });
+  elements.requireCategorySelection?.addEventListener("change", async () => {
+    state.requireCategorySelection = elements.requireCategorySelection.checked;
+    if (state.requireCategorySelection && !trayMode) {
+      state.selectedCategory = "all";
+    }
+    await saveState();
+    render({ preserveScroll: true });
   });
   elements.quickFullButton.addEventListener("click", async () => {
     state.quickFull = !state.quickFull;
@@ -972,7 +1027,8 @@ function hideTooltip() {
 
 async function loadState() {
   const result = await chrome.storage.local.get(STORAGE_KEY);
-  state = { ...structuredClone(DEFAULT_STATE), ...(result[STORAGE_KEY] || {}) };
+  const storedState = result[STORAGE_KEY] || {};
+  state = { ...structuredClone(DEFAULT_STATE), ...storedState };
   if (!OPEN_BEHAVIOR_META[state.openBehavior]) {
     state.openBehavior = DEFAULT_STATE.openBehavior;
   }
@@ -1002,14 +1058,16 @@ async function loadState() {
   state.savedViews = normalizeSavedViews(state.savedViews);
   state.frequentOrder = normalizeIdList(state.frequentOrder);
   state.overlayOpacity = clampNumber(state.overlayOpacity, 45, 98, DEFAULT_STATE.overlayOpacity);
+  state.requireCategorySelection = state.requireCategorySelection !== false;
   delete state.cardColorEnabled;
   delete state.cardColor;
   state.hiddenCategories = [...new Set(state.hiddenCategories || [])];
   state.categoryOrder = [...new Set(state.categoryOrder || [])].filter((name) => !isHiddenCategory(name));
-  if (!state.selectedCategory || isHiddenCategory(state.selectedCategory)) {
-    state.selectedCategory = DEFAULT_STATE.selectedCategory;
+  if (state.requireCategorySelection && state.selectedCategory !== "all") {
+    state.selectedCategory = "all";
     stateNeedsPersistAfterLoad = true;
-  } else if (state.selectedCategory === "all") {
+  } else if (!state.selectedCategory || isHiddenCategory(state.selectedCategory)) {
+    state.selectedCategory = getFallbackSelectedCategory();
     stateNeedsPersistAfterLoad = true;
   }
 }
@@ -1205,6 +1263,33 @@ function getStoredCategory(id) {
   return category && !isHiddenCategory(category) ? category : "";
 }
 
+function getBookmarkMap() {
+  const cacheKey = ["bookmarkMap", bookmarksRevision].join("::");
+  return getCachedRenderData(cacheKey, () => new Map(bookmarks.map((bookmark) => [bookmark.id, bookmark])));
+}
+
+function getBookmarkIdSet() {
+  const cacheKey = ["bookmarkIds", bookmarksRevision].join("::");
+  return getCachedRenderData(cacheKey, () => new Set(bookmarks.map((bookmark) => bookmark.id)));
+}
+
+function requiresCategorySelection() {
+  return state.requireCategorySelection !== false;
+}
+
+function getFallbackSelectedCategory(categoryNames = getCategoryNames()) {
+  return requiresCategorySelection() ? "all" : getPreferredConcreteCategory(categoryNames);
+}
+
+function shouldShowCategorySelectionPrompt() {
+  const query = elements.searchInput?.value.trim();
+  return !trayMode && requiresCategorySelection() && state.selectedCategory === "all" && !query;
+}
+
+function shouldDeferQuickStack() {
+  return shouldShowCategorySelectionPrompt() && !state.quickFull;
+}
+
 function applyLanguage() {
   document.documentElement.lang = getLanguage();
   applySurfaceChrome();
@@ -1270,6 +1355,7 @@ function applyLanguage() {
   setLabelText(elements.floatingButtonColor, t("floatingButtonColor"));
   setLabelText(elements.floatingButtonSize, t("floatingButtonSize"));
   setLabelText(elements.overlayOpacityInput, t("overlayOpacity"));
+  setLabelText(elements.requireCategorySelection, t("requireCategorySelection"));
   const pinnedLabel = elements.editPinned?.closest("label");
   const pinnedText = [...(pinnedLabel?.childNodes || [])].find((node) => node.nodeType === Node.TEXT_NODE);
   if (pinnedText) pinnedText.textContent = t("pinFrequent");
@@ -1292,9 +1378,12 @@ function applyLanguage() {
 
 function render(options = {}) {
   const scrollSnapshot = options.preserveScroll ? captureScrollSnapshot() : null;
-  renderGeneration += 1;
+  const skipQuickStack = !!options.skipQuickStack;
   applySurfaceChrome();
-  resetLazyFavicons();
+  if (!skipQuickStack) {
+    renderGeneration += 1;
+    resetLazyFavicons();
+  }
   pruneSelection();
   pruneLinkStatuses();
   duplicateUrlSet = trayMode ? getDuplicateUrlSet(bookmarks) : new Set();
@@ -1302,8 +1391,9 @@ function render(options = {}) {
   const visible = getVisibleBookmarksForRender();
   const categoryNames = getCategoryNames();
   const categories = collectCategories(categoryNames);
-  const frequent = getFrequentBookmarks();
-  const recent = getRecentBookmarks();
+  const deferQuickStack = shouldDeferQuickStack();
+  const frequent = skipQuickStack || deferQuickStack ? null : getFrequentBookmarks();
+  const recent = skipQuickStack || deferQuickStack ? null : getRecentBookmarks();
   const baseStats = trayMode
     ? t("trayStats", { visible: visible.length, total: bookmarks.length })
     : t("bookmarksStats", { total: bookmarks.length, visible: visible.length });
@@ -1311,6 +1401,7 @@ function render(options = {}) {
   elements.statsText.textContent = linkSummary ? `${baseStats} / ${linkSummary}` : baseStats;
   elements.app.dataset.deleteMode = deleteMode ? "true" : "false";
   elements.app.dataset.batchMode = batchMode ? "true" : "false";
+  elements.app.dataset.managementMode = isManagementMode() ? "true" : "false";
   elements.app.dataset.trayMode = trayMode ? "true" : "false";
   elements.app.dataset.linkChecking = linkCheckRunning ? "true" : "false";
   elements.app.dataset.quickCollapsed = state.quickCollapsed ? "true" : "false";
@@ -1352,6 +1443,9 @@ function render(options = {}) {
   if (elements.overlayOpacityInput) {
     elements.overlayOpacityInput.value = String(state.overlayOpacity);
   }
+  if (elements.requireCategorySelection) {
+    elements.requireCategorySelection.checked = requiresCategorySelection();
+  }
   const language = getLanguage();
   if (appliedLanguage !== language) {
     applyLanguage();
@@ -1359,11 +1453,16 @@ function render(options = {}) {
   }
   renderSavedViewControls();
   updateButtons();
-  renderFrequent(frequent, categoryNames);
-  if (state.quickFull || state.recentCollapsed) {
-    elements.recentList?.replaceChildren();
-  } else {
-    renderRecent(recent, categoryNames);
+  if (!skipQuickStack && deferQuickStack) {
+    renderDeferredQuickStack(categoryNames);
+  } else if (!skipQuickStack) {
+    quickStackDeferred = false;
+    renderFrequent(frequent, categoryNames);
+    if (state.quickFull || state.recentCollapsed) {
+      elements.recentList?.replaceChildren();
+    } else {
+      renderRecent(recent, categoryNames);
+    }
   }
   if (state.quickFull) {
     elements.genreList?.replaceChildren();
@@ -1376,7 +1475,6 @@ function render(options = {}) {
     }
     renderSections(visible, categories, categoryNames);
   }
-  renderCategoryOptions(categoryNames);
   renderBatchBar(visible, categoryNames);
   if (scrollSnapshot) {
     restoreScrollSnapshot(scrollSnapshot);
@@ -1454,9 +1552,7 @@ function filteredBookmarks() {
 }
 
 function getVisibleBookmarksForRender() {
-  const query = elements.searchInput.value.trim();
-  const showsOnlyPrompt = !trayMode && state.layout === "grouped" && state.selectedCategory === "all" && !query;
-  return showsOnlyPrompt ? bookmarks : filteredBookmarks();
+  return shouldShowCategorySelectionPrompt() ? [] : filteredBookmarks();
 }
 
 function getBookmarkSorter() {
@@ -1547,21 +1643,53 @@ function getFrequentBookmarks() {
   const cacheKey = ["frequent", bookmarksRevision, usageRevision, state.quickFull, state.recentCollapsed, state.panelRatio, limit, orderSignature].join("::");
   return getCachedRenderData(cacheKey, () => {
     const orderMap = getFrequentOrderMap();
-    return bookmarks
-      .filter((bookmark) => state.pinned[bookmark.id] || state.usage[bookmark.id]?.count)
+    const bookmarkMap = getBookmarkMap();
+    const candidateIds = new Set([
+      ...Object.keys(state.pinned || {}).filter((id) => state.pinned[id]),
+      ...Object.keys(state.usage || {}).filter((id) => state.usage[id]?.count)
+    ]);
+    return [...candidateIds]
+      .map((id) => bookmarkMap.get(id))
+      .filter(Boolean)
       .sort((a, b) => sortFrequentBookmarks(a, b, orderMap))
+      .slice(0, limit);
+  });
+}
+
+function getPinnedBookmarks(limit = DEFERRED_PINNED_LIMIT) {
+  const orderSignature = normalizeIdList(state.frequentOrder).join("\u0001");
+  const cacheKey = ["pinned", bookmarksRevision, usageRevision, limit, orderSignature].join("::");
+  return getCachedRenderData(cacheKey, () => {
+    const orderMap = getFrequentOrderMap();
+    const bookmarkMap = getBookmarkMap();
+    return Object.keys(state.pinned || {})
+      .filter((id) => state.pinned[id])
+      .map((id) => bookmarkMap.get(id))
+      .filter(Boolean)
+      .sort((a, b) => {
+        const manualDelta = compareFrequentManualOrder(a, b, orderMap);
+        return manualDelta || compareFolderAndIndex(a, b) || compareBookmarkTitle(a, b);
+      })
       .slice(0, limit);
   });
 }
 
 function getRecentBookmarks() {
   const cacheKey = ["recent", bookmarksRevision].join("::");
-  return getCachedRenderData(cacheKey, () => (
-    [...bookmarks]
-      .filter((bookmark) => Number.isFinite(bookmark.dateAdded))
-      .sort((a, b) => (b.dateAdded || 0) - (a.dateAdded || 0))
-      .slice(0, RECENT_BOOKMARK_LIMIT)
-  ));
+  return getCachedRenderData(cacheKey, () => {
+    const recent = [];
+    bookmarks.forEach((bookmark) => {
+      if (!Number.isFinite(bookmark.dateAdded)) return;
+      const insertIndex = recent.findIndex((item) => (bookmark.dateAdded || 0) > (item.dateAdded || 0));
+      if (insertIndex === -1) {
+        if (recent.length < RECENT_BOOKMARK_LIMIT) recent.push(bookmark);
+      } else {
+        recent.splice(insertIndex, 0, bookmark);
+        if (recent.length > RECENT_BOOKMARK_LIMIT) recent.pop();
+      }
+    });
+    return recent;
+  });
 }
 
 function renderFrequent(items, categoryNames) {
@@ -1606,7 +1734,7 @@ async function reorderFrequentBookmarks(sourceId, targetId, position = "before")
   if (targetIndex < 0) return;
   nextIds.splice(targetIndex + (position === "after" ? 1 : 0), 0, sourceId);
 
-  const validIds = new Set(bookmarks.map((bookmark) => bookmark.id));
+  const validIds = getBookmarkIdSet();
   const carryOverIds = normalizeIdList(state.frequentOrder)
     .filter((id) => validIds.has(id) && !nextIds.includes(id));
   state.frequentOrder = [...nextIds, ...carryOverIds];
@@ -1624,6 +1752,20 @@ function renderRecent(items, categoryNames) {
   }
   const visibleItems = initialRenderLimited ? items.slice(0, 6) : items;
   appendBookmarkCardsInChunks(elements.recentList, visibleItems, { firstChunk: 6, categoryNames });
+}
+
+function renderDeferredQuickStack(categoryNames) {
+  quickStackDeferred = true;
+  elements.frequentList?.replaceChildren();
+  elements.recentList?.replaceChildren();
+  if (state.quickCollapsed || !elements.frequentList) return;
+  const pinned = getPinnedBookmarks();
+  if (!pinned.length) return;
+  appendBookmarkCardsInChunks(elements.frequentList, pinned, {
+    frequent: true,
+    firstChunk: Math.min(6, pinned.length),
+    categoryNames
+  });
 }
 
 function renderSavedViewControls() {
@@ -1697,7 +1839,7 @@ async function applySavedView(id) {
 
   activeSavedViewId = view.id;
   trayMode = !!view.trayMode;
-  state.selectedCategory = isHiddenCategory(view.selectedCategory) ? DEFAULT_STATE.selectedCategory : view.selectedCategory || DEFAULT_STATE.selectedCategory;
+  state.selectedCategory = isHiddenCategory(view.selectedCategory) ? getFallbackSelectedCategory() : view.selectedCategory || getFallbackSelectedCategory();
   state.layout = view.layout === "list" ? "list" : "grouped";
   state.panelRatio = PANEL_RATIO_MODES.has(view.panelRatio) ? view.panelRatio : DEFAULT_STATE.panelRatio;
   state.density = view.density === "compact" ? "compact" : "cards";
@@ -1730,16 +1872,19 @@ function createGenreButton(value, label, count) {
   button.type = "button";
   button.className = "genre-chip";
   button.draggable = value !== "all";
-  button.dataset.active = !trayMode && state.selectedCategory === value ? "true" : "false";
+  const isActive = !trayMode && state.selectedCategory === value && !(requiresCategorySelection() && value === "all");
+  button.dataset.active = isActive ? "true" : "false";
   button.innerHTML = `<span class="genre-label"></span><span class="genre-count"></span>`;
   button.querySelector(".genre-label").textContent = label;
   button.querySelector(".genre-count").textContent = count;
   button.addEventListener("click", async () => {
     if (!trayMode && state.selectedCategory === value) return;
+    const hydrateQuickStack = quickStackDeferred && value !== "all";
     trayMode = false;
     state.selectedCategory = value;
     await saveState();
-    render();
+    render({ preserveScroll: true, skipQuickStack: true });
+    if (hydrateQuickStack) scheduleQuickStackHydration();
   });
   button.addEventListener("dragstart", () => {
     if (value === "all") return;
@@ -1806,6 +1951,7 @@ function refreshSelectionUi(changedIds = null) {
   pruneSelection();
   elements.app.dataset.deleteMode = deleteMode ? "true" : "false";
   elements.app.dataset.batchMode = batchMode ? "true" : "false";
+  elements.app.dataset.managementMode = isManagementMode() ? "true" : "false";
   const targetCards = changedIds
     ? [...document.querySelectorAll(".bookmark-card")].filter((card) => changedIds.includes(card.dataset.bookmarkId))
     : [...document.querySelectorAll(".bookmark-card")];
@@ -1826,11 +1972,11 @@ function toggleBatchMode() {
   batchMode = !batchMode;
   if (batchMode) {
     deleteMode = false;
-    selectedIds = new Set(filteredBookmarks().map((bookmark) => bookmark.id));
+    selectedIds = new Set(getVisibleBookmarksForRender().map((bookmark) => bookmark.id));
   } else {
     selectedIds.clear();
   }
-  refreshSelectionUi();
+  render({ preserveScroll: true });
 }
 
 async function toggleTrayMode() {
@@ -1854,12 +2000,12 @@ function toggleBookmarkSelection(id) {
 }
 
 function pruneSelection() {
-  const validIds = new Set(bookmarks.map((bookmark) => bookmark.id));
+  const validIds = getBookmarkIdSet();
   selectedIds = new Set([...selectedIds].filter((id) => validIds.has(id)));
 }
 
 function pruneLinkStatuses() {
-  const validIds = new Set(bookmarks.map((bookmark) => bookmark.id));
+  const validIds = getBookmarkIdSet();
   linkStatuses = new Map([...linkStatuses.entries()].filter(([id]) => validIds.has(id)));
 }
 
@@ -1876,7 +2022,7 @@ function getLinkCheckSummary(visible) {
 
 async function checkVisibleLinks() {
   if (linkCheckRunning) return;
-  const visible = filteredBookmarks();
+  const visible = getVisibleBookmarksForRender();
   if (!visible.length) return;
   linkCheckRunning = true;
   visible.forEach((bookmark) => {
@@ -1994,7 +2140,7 @@ function renderBatchBar(visible, categoryNames) {
 }
 
 function selectVisibleBookmarks() {
-  filteredBookmarks().forEach((bookmark) => selectedIds.add(bookmark.id));
+  getVisibleBookmarksForRender().forEach((bookmark) => selectedIds.add(bookmark.id));
   batchMode = true;
   refreshSelectionUi();
 }
@@ -2002,6 +2148,14 @@ function selectVisibleBookmarks() {
 function clearSelection() {
   selectedIds.clear();
   refreshSelectionUi();
+}
+
+function isManagementMode() {
+  return batchMode || deleteMode || trayMode || linkCheckRunning || linkStatuses.size > 0;
+}
+
+function shouldUseLightweightBookmarkCards(options = {}) {
+  return !options.frequent && !isManagementMode();
 }
 
 async function moveSelectedBookmarks() {
@@ -2095,6 +2249,11 @@ function normalizeUrl(url) {
 
 function renderSections(items, categories, categoryNames) {
   elements.bookmarkSections.innerHTML = "";
+  if (shouldShowCategorySelectionPrompt()) {
+    elements.bookmarkSections.append(emptyMessage(t("selectGenrePrompt")));
+    return;
+  }
+
   if (!items.length) {
     elements.bookmarkSections.append(emptyMessage(t("noBookmarks")));
     return;
@@ -2106,11 +2265,6 @@ function renderSections(items, categories, categoryNames) {
     const section = createSection(title, items.length, getVisibleLimit(getSectionKey("list", title), items.length));
     elements.bookmarkSections.append(section);
     renderSectionBookmarks(section, items, getSectionKey("list", title), categoryNames);
-    return;
-  }
-
-  if (!trayMode && state.selectedCategory === "all") {
-    elements.bookmarkSections.append(emptyMessage(t("selectGenrePrompt")));
     return;
   }
 
@@ -2163,11 +2317,18 @@ function createSection(title, count, shown = count) {
 
 function renderSectionBookmarks(section, items, sectionKey, categoryNames) {
   const grid = section.querySelector(".bookmark-grid");
+  const lightweight = shouldUseLightweightBookmarkCards();
   const limit = getVisibleLimit(sectionKey, items.length);
   const shownItems = items.slice(0, limit);
-  appendBookmarkCardsInChunks(grid, shownItems, { categoryNames });
+  const renderOptions = {
+    categoryNames,
+    lightweight,
+    firstChunk: lightweight ? LIGHTWEIGHT_CARD_RENDER_CHUNK_SIZE : undefined,
+    chunkSize: lightweight ? LIGHTWEIGHT_CARD_RENDER_CHUNK_SIZE : undefined
+  };
+  appendBookmarkCardsInChunks(grid, shownItems, renderOptions);
   if (shownItems.length < items.length) {
-    section.append(createShowMoreButton(section, sectionKey, shownItems.length, items.length, items, categoryNames));
+    section.append(createShowMoreButton(section, sectionKey, shownItems.length, items.length, items, categoryNames, renderOptions));
   }
 }
 
@@ -2177,7 +2338,9 @@ function getSectionKey(kind, name) {
 }
 
 function getVisibleLimit(sectionKey, total) {
-  const defaultLimit = initialRenderLimited ? INITIAL_SECTION_PAGE_SIZE : SECTION_PAGE_SIZE;
+  const defaultLimit = shouldUseLightweightBookmarkCards()
+    ? (initialRenderLimited ? LIGHTWEIGHT_INITIAL_SECTION_PAGE_SIZE : LIGHTWEIGHT_SECTION_PAGE_SIZE)
+    : (initialRenderLimited ? INITIAL_SECTION_PAGE_SIZE : SECTION_PAGE_SIZE);
   return Math.min(total, sectionVisibleLimits.get(sectionKey) || defaultLimit);
 }
 
@@ -2186,10 +2349,11 @@ function appendBookmarkCardsInChunks(container, items, options = {}) {
   const firstChunk = Math.min(items.length, options.firstChunk || CARD_RENDER_CHUNK_SIZE);
   appendBookmarkCardRange(container, items, 0, firstChunk, options);
   let index = firstChunk;
+  const chunkSize = options.chunkSize || CARD_RENDER_CHUNK_SIZE;
 
   const appendNextChunk = () => {
     if (generation !== renderGeneration || !container.isConnected) return;
-    const nextIndex = Math.min(items.length, index + CARD_RENDER_CHUNK_SIZE);
+    const nextIndex = Math.min(items.length, index + chunkSize);
     appendBookmarkCardRange(container, items, index, nextIndex, options);
     index = nextIndex;
     if (index < items.length) {
@@ -2211,21 +2375,23 @@ function appendBookmarkCardRange(container, items, start, end, options) {
   container.append(fragment);
 }
 
-function createShowMoreButton(section, sectionKey, shown, total, items, categoryNames) {
+function createShowMoreButton(section, sectionKey, shown, total, items, categoryNames, renderOptions = { categoryNames }) {
   const button = document.createElement("button");
   let currentShown = shown;
   button.type = "button";
   button.className = "show-more-button";
   const updateButton = () => {
-    const nextCount = Math.min(SECTION_PAGE_SIZE, total - currentShown);
+    const pageSize = renderOptions.lightweight ? LIGHTWEIGHT_SECTION_PAGE_SIZE : SECTION_PAGE_SIZE;
+    const nextCount = Math.min(pageSize, total - currentShown);
     button.textContent = t("showMore", { count: nextCount, remaining: total - currentShown });
   };
   updateButton();
   button.addEventListener("click", () => {
     const grid = section.querySelector(".bookmark-grid");
-    const nextShown = Math.min(total, currentShown + SECTION_PAGE_SIZE);
+    const pageSize = renderOptions.lightweight ? LIGHTWEIGHT_SECTION_PAGE_SIZE : SECTION_PAGE_SIZE;
+    const nextShown = Math.min(total, currentShown + pageSize);
     sectionVisibleLimits.set(sectionKey, nextShown);
-    appendBookmarkCardRange(grid, items, currentShown, nextShown, { categoryNames });
+    appendBookmarkCardsInChunks(grid, items.slice(currentShown, nextShown), renderOptions);
     currentShown = nextShown;
     const countNode = section.querySelector(".count");
     if (countNode) {
@@ -2240,7 +2406,50 @@ function createShowMoreButton(section, sectionKey, shown, total, items, category
   return button;
 }
 
+function createLightweightBookmarkCard(bookmark) {
+  const card = document.createElement("article");
+  card.className = "bookmark-card";
+  card.dataset.lite = "true";
+  card.dataset.bookmarkId = bookmark.id;
+  card.dataset.pinned = state.pinned[bookmark.id] ? "true" : "false";
+  card.dataset.selected = selectedIds.has(bookmark.id) ? "true" : "false";
+  card.draggable = true;
+  const linkStatus = linkStatuses.get(bookmark.id);
+  if (linkStatus) card.dataset.linkStatus = linkStatus.status;
+  const host = safeHost(bookmark.url);
+  card.innerHTML = `
+    <button class="preview" type="button" title="開く" aria-label="開く"><img class="favicon" alt="" loading="lazy"></button>
+    <div class="bookmark-body">
+      <button class="bookmark-title" type="button"></button>
+      <div class="bookmark-meta"></div>
+    </div>
+    <span class="tag category-tag"></span>`;
+  queueLazyFavicon(card.querySelector(".favicon"), bookmark.url);
+  card.querySelector(".bookmark-title").textContent = bookmark.title;
+  card.querySelector(".bookmark-title").title = bookmark.title;
+  card.querySelector(".bookmark-meta").textContent = host || bookmark.url;
+  card.querySelector(".category-tag").textContent = displayCategoryName(bookmark.category);
+  setControlLabel(card.querySelector(".preview"), t("open"));
+  card.addEventListener("dragstart", () => {
+    dragBookmarkId = bookmark.id;
+    card.classList.add("dragging");
+  });
+  card.addEventListener("dragend", () => {
+    dragBookmarkId = null;
+    card.classList.remove("dragging");
+  });
+  card.addEventListener("click", (event) => {
+    if (isInteractiveCardTarget(event.target)) return;
+    handlePrimaryBookmarkAction(bookmark);
+  });
+  card.addEventListener("contextmenu", (event) => handleBookmarkContextOpen(event, bookmark));
+  card.querySelector(".preview").addEventListener("click", () => handlePrimaryBookmarkAction(bookmark));
+  card.querySelector(".bookmark-title").addEventListener("click", () => handlePrimaryBookmarkAction(bookmark));
+  return card;
+}
+
 function createBookmarkCard(bookmark, options = {}) {
+  if (options.lightweight) return createLightweightBookmarkCard(bookmark);
   const card = document.createElement("article");
   card.className = "bookmark-card";
   card.dataset.bookmarkId = bookmark.id;
@@ -2261,7 +2470,7 @@ function createBookmarkCard(bookmark, options = {}) {
     </div>
     <div class="card-actions">
       <button class="icon-button select-card-button" type="button" title="選択" aria-label="選択">□</button>
-      <button class="icon-button pin-button" type="button" title="固定" aria-label="固定">★</button>
+      <button class="icon-button pin-button" type="button" title="固定" aria-label="固定">${BOOKMARK_STAR_ICON}</button>
       <button class="icon-button edit-card-button" type="button" title="編集" aria-label="編集">✎</button>
       <button class="icon-button open-card-button" type="button" title="開く" aria-label="開く">↗</button>
       <button class="icon-button delete-card-button" type="button" title="削除" aria-label="削除">⌫</button>
@@ -2479,6 +2688,7 @@ async function openBookmarkInCurrentTabKeepingOverlay(url, targetWindow) {
 }
 
 async function closeBookmarkShelf(currentWindow, targetWindow) {
+  await animateShelfClose();
   if (SURFACE === "overlay") {
     window.parent.postMessage({ type: "bookmark-shelf-close-overlay" }, "*");
     return;
@@ -2493,6 +2703,7 @@ async function closeBookmarkShelf(currentWindow, targetWindow) {
 }
 
 function openEditDialog(bookmark) {
+  renderCategoryOptions();
   elements.editId.value = bookmark.id;
   elements.editTitle.value = bookmark.title;
   elements.editUrl.value = bookmark.url;
@@ -2670,7 +2881,7 @@ function openDomainDialog() {
 }
 
 function renderDomainDialog() {
-  const source = filteredBookmarks();
+  const source = getVisibleBookmarksForRender();
   const categoryNames = getCategoryNames();
   const groups = new Map();
   source.forEach((bookmark) => {
@@ -2749,7 +2960,7 @@ function getDomainCategorySuggestion(host, items, categoryNames) {
 function openOrganizeSession() {
   const selected = [...selectedIds].map(getBookmarkById).filter(Boolean);
   let source = selected.length ? selected : getTrayBookmarks();
-  if (!source.length) source = filteredBookmarks();
+  if (!source.length) source = getVisibleBookmarksForRender();
   if (!source.length) {
     alert(t("noOrganize"));
     return;
@@ -2850,7 +3061,7 @@ async function deleteOrganizeBookmark() {
 }
 
 function getBookmarkById(id) {
-  return bookmarks.find((bookmark) => bookmark.id === id);
+  return getBookmarkMap().get(String(id));
 }
 
 function openGenreDialog() {
@@ -2866,6 +3077,7 @@ function openSettingsDialog() {
 }
 
 async function closeShelfView() {
+  await animateShelfClose();
   if (SURFACE === "overlay") {
     window.parent.postMessage({ type: "bookmark-shelf-close-overlay" }, "*");
     return;
@@ -2935,7 +3147,7 @@ async function deleteCategory(name) {
   bookmarks.forEach((bookmark) => {
     if (bookmark.category === name) state.categories[bookmark.id] = "未分類";
   });
-  if (state.selectedCategory === name) state.selectedCategory = DEFAULT_STATE.selectedCategory;
+  if (state.selectedCategory === name) state.selectedCategory = getFallbackSelectedCategory();
   markCategoryStateDirty("categories", "customCategories", "hiddenCategories", "categoryOrder");
   await saveState();
   await loadBookmarks();
@@ -2971,7 +3183,8 @@ function updateButtons() {
   elements.groupedViewButton.setAttribute("aria-pressed", String(state.panelRatio !== "frequent"));
   elements.listViewButton.setAttribute("aria-pressed", String(state.panelRatio === "frequent"));
   elements.groupedViewButton.textContent = "▤";
-  elements.listViewButton.textContent = "★";
+  setBookmarkStarIcon(elements.listViewButton);
+  setBookmarkStarIcon(elements.batchPinButton);
   setControlLabel(elements.openFullButton, t("openFull"));
   setControlLabel(elements.batchModeButton, t("batchMode"));
   setControlLabel(elements.trayModeButton, t("trayMode"));
@@ -3062,13 +3275,13 @@ function populateCategorySelect(select, selectedCategory, categoryNames = getCat
 
 function normalizeConcreteSelectedCategory(options = {}) {
   if (trayMode) return false;
-  const { replaceAll = false, persist = true } = options;
+  const { persist = true } = options;
   const categoryNames = getCategoryNames();
   const current = state.selectedCategory;
   const isConcrete = current && current !== "all" && categoryNames.includes(current) && !isHiddenCategory(current);
-  if (isConcrete || (current === "all" && !replaceAll)) return false;
+  if (isConcrete || current === "all") return false;
 
-  const nextCategory = getPreferredConcreteCategory(categoryNames);
+  const nextCategory = getFallbackSelectedCategory(categoryNames);
   if (!nextCategory || nextCategory === current) return false;
   state.selectedCategory = nextCategory;
   if (persist && stateLoaded) {
@@ -3079,13 +3292,13 @@ function normalizeConcreteSelectedCategory(options = {}) {
 
 function getPreferredConcreteCategory(categoryNames = getCategoryNames()) {
   const visibleNames = categoryNames.filter((name) => name && name !== "all" && !isHiddenCategory(name));
-  if (!visibleNames.length) return DEFAULT_STATE.selectedCategory;
+  if (!visibleNames.length) return DEFAULT_CONCRETE_CATEGORY;
   const bookmarkCounts = new Map();
   bookmarks.forEach((bookmark) => {
     bookmarkCounts.set(bookmark.category, (bookmarkCounts.get(bookmark.category) || 0) + 1);
   });
   return visibleNames.find((name) => (bookmarkCounts.get(name) || 0) > 0)
-    || (visibleNames.includes(DEFAULT_STATE.selectedCategory) ? DEFAULT_STATE.selectedCategory : visibleNames[0]);
+    || (visibleNames.includes(DEFAULT_CONCRETE_CATEGORY) ? DEFAULT_CONCRETE_CATEGORY : visibleNames[0]);
 }
 
 function getCategoryNames() {
