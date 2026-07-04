@@ -27,6 +27,10 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === "open-bookmark-shelf") {
     openShelf({ tab, preferSidePanel: true }).catch(() => {});
+    return;
+  }
+  if (info.menuItemId === "bookmark-shelf-pin-current") {
+    bookmarkAndPinCurrentPage(tab).catch(() => {});
   }
 });
 
@@ -37,6 +41,18 @@ async function setupExtensionControls() {
       id: "open-bookmark-shelf",
       title: "Bookmark Shelf を開く",
       contexts: ["all"]
+    }, () => void chrome.runtime.lastError);
+    chrome.contextMenus.create({
+      id: "bookmark-shelf-pin-separator",
+      type: "separator",
+      contexts: ["page"],
+      documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*"]
+    }, () => void chrome.runtime.lastError);
+    chrome.contextMenus.create({
+      id: "bookmark-shelf-pin-current",
+      title: "このページをブックマークして固定",
+      contexts: ["page"],
+      documentUrlPatterns: ["http://*/*", "https://*/*", "file:///*"]
     }, () => void chrome.runtime.lastError);
   } catch {
     // Menu creation can throw while Brave is refreshing extension state.
@@ -115,6 +131,84 @@ async function recordBookmarkOpen(bookmarkId) {
   };
   await chrome.storage.local.set({ [STORAGE_KEY]: nextState });
   cachedState = nextState;
+}
+
+async function bookmarkAndPinCurrentPage(tab) {
+  const url = String(tab?.url || "").trim();
+  if (!isInjectableUrl(url)) return false;
+
+  const matches = await chrome.bookmarks.search({ url }).catch(() => []);
+  let bookmark = matches.find((item) => item.url === url);
+  if (!bookmark) {
+    const parentId = await getDefaultBookmarkFolderId();
+    const createArgs = {
+      title: String(tab?.title || url).trim() || url,
+      url
+    };
+    if (parentId) createArgs.parentId = parentId;
+    bookmark = await chrome.bookmarks.create(createArgs);
+  }
+
+  const result = await chrome.storage.local.get(STORAGE_KEY).catch(() => ({}));
+  const currentState = result[STORAGE_KEY] || {};
+  const currentPinned = currentState.pinned && typeof currentState.pinned === "object" ? currentState.pinned : {};
+  const savedPinnedOrder = Array.isArray(currentState.pinnedOrder)
+    ? [...new Set(currentState.pinnedOrder.map((id) => String(id || "").trim()).filter((id) => id && currentPinned[id]))]
+    : [];
+  const currentPinnedOrder = await getPinnedRegistrationOrder(currentPinned, savedPinnedOrder);
+  if (!currentPinnedOrder.includes(bookmark.id)) currentPinnedOrder.push(bookmark.id);
+  const nextState = {
+    ...currentState,
+    pinned: {
+      ...currentPinned,
+      [bookmark.id]: true
+    },
+    pinnedOrder: currentPinnedOrder
+  };
+  await chrome.storage.local.set({ [STORAGE_KEY]: nextState });
+  cachedState = nextState;
+  showPinnedFeedback(tab?.id).catch(() => {});
+  return true;
+}
+
+async function getPinnedRegistrationOrder(pinned, savedOrder = []) {
+  const order = [...savedOrder];
+  const orderedIds = new Set(order);
+  const missingIds = new Set(Object.keys(pinned || {}).filter((id) => pinned[id] && !orderedIds.has(id)));
+  if (!missingIds.size) return order;
+  const tree = await chrome.bookmarks.getTree().catch(() => []);
+  const bookmarks = [];
+  const collect = (nodes) => {
+    (nodes || []).forEach((node) => {
+      if (node.url && missingIds.has(node.id)) {
+        bookmarks.push(node);
+      } else if (node.children) {
+        collect(node.children);
+      }
+    });
+  };
+  collect(tree);
+  bookmarks
+    .sort((a, b) => (Number(a.dateAdded) || 0) - (Number(b.dateAdded) || 0) || String(a.title || "").localeCompare(String(b.title || ""), "ja"))
+    .forEach((item) => order.push(item.id));
+  return order;
+}
+
+async function getDefaultBookmarkFolderId() {
+  const tree = await chrome.bookmarks.getTree().catch(() => []);
+  const folders = tree[0]?.children?.filter((node) => !node.url) || [];
+  const otherFolder = folders.find((node) => node.id === "2")
+    || folders.find((node) => /other bookmarks|その他のブックマーク/i.test(node.title || ""));
+  return otherFolder?.id || folders[0]?.id || null;
+}
+
+async function showPinnedFeedback(tabId) {
+  if (!tabId || !chrome.action?.setBadgeText) return;
+  await chrome.action.setBadgeBackgroundColor({ tabId, color: "#222222" }).catch(() => {});
+  await chrome.action.setBadgeText({ tabId, text: "★" }).catch(() => {});
+  setTimeout(() => {
+    chrome.action.setBadgeText({ tabId, text: "" }).catch(() => {});
+  }, 1800);
 }
 
 async function openShelf(options = {}) {

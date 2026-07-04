@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Bookmark Shelf</title>
     <script src="src/surface.js"></script>
-    <link rel="stylesheet" href="src/styles.css">
+    <link rel="stylesheet" href="src/styles.css?v=visvim-7">
   </head>
-  <body class="sidepanel-shell">
+  <body class="launcher-shell">
     <div id="app" class="app" data-layout="grouped" data-density="cards">
       <header class="topbar">
         <div>
@@ -15,7 +15,7 @@
           <p id="statsText">ブックマークを読み込み中</p>
         </div>
         <div class="top-actions">
-          <button id="openFullButton" class="icon-button" title="大きな画面で開く" aria-label="大きな画面で開く">□</button>
+          <button id="openFullButton" class="icon-button hidden" title="大きな画面で開く" aria-label="大きな画面で開く">□</button>
           <button id="batchModeButton" class="icon-button" type="button" title="一括選択モード" aria-label="一括選択モード">☑</button>
           <button id="trayModeButton" class="icon-button" type="button" title="未整理トレイ" aria-label="未整理トレイ">◇</button>
           <button id="organizeSessionButton" class="icon-button" type="button" title="整理セッション" aria-label="整理セッション">▶</button>
@@ -26,7 +26,7 @@
           <button id="openBehaviorButton" class="icon-button" title="開き方を切り替え" aria-label="開き方を切り替え">↗</button>
           <button id="settingsButton" class="icon-button" title="設定" aria-label="設定">⚙</button>
           <button id="themeToggleButton" class="icon-button" title="ダークモード切り替え" aria-label="ダークモード切り替え">◐</button>
-          <button id="languageToggleButton" class="icon-button" type="button" title="Switch to English" aria-label="Switch to English">EN</button>
+          <button id="languageToggleButton" class="icon-button" type="button" title="Englishに切り替え" aria-label="Englishに切り替え">EN</button>
           <button id="overlayCloseButton" class="icon-button overlay-only" type="button" title="閉じる" aria-label="閉じる">×</button>
           <button id="refreshButton" class="icon-button" title="再読み込み" aria-label="再読み込み">↻</button>
         </div>
@@ -217,3 +217,4 @@
     <script src="src/app.js" type="module"></script>
   </body>
 </html>
+

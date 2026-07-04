@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design System Preview: ZENB（ゼンブ）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --color-green: #004727;
+    --color-yellow: #fed14a;
+    --color-black: #1a1a1a;
+    --color-white: #ffffff;
+    --color-cream: #fffdfa;
+    --color-seagreen: #4c7e68;
+    --color-powdergreen: #99b5a9;
+    --color-maroon: #cc3044;
+    --color-orange: #ec9a0a;
+    --color-khaki: #e6b768;
+    --color-lightgrey: #f4f5f5;
+    --color-grey: #e5e5e5;
+    --color-darkgrey: #c7cdca;
+    --surface: #f3f5f4;
+    --section-bg: #f7f7f7;
+    --font-jp: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+    --font-en: Montserrat, "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--color-white);
+    color: var(--color-black);
+    font-family: var(--font-jp);
+    font-size: 14px; font-weight: 400; line-height: 2.0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; height: 64px;
+    background: var(--color-white);
+    border-bottom: 1px solid var(--color-grey);
+  }
+  .nav-brand { font-family: var(--font-en); font-size: 20px; font-weight: 600; color: var(--color-green); text-decoration: none; letter-spacing: 0.05em; }
+  .nav-links { display: flex; gap: 24px; list-style: none; }
+  .nav-links a { font-family: var(--font-jp); font-size: 13px; font-weight: 500; color: var(--color-green); text-decoration: none; transition: opacity 0.15s; }
+  .nav-links a:hover { opacity: 0.7; }
+  .nav-cta {
+    display: inline-block; background: var(--color-yellow); color: var(--color-black);
+    padding: 8px 24px; border-radius: 100px; border: none;
+    font-family: var(--font-jp); font-size: 13px; font-weight: 600;
+    text-decoration: none; cursor: pointer; transition: opacity 0.15s;
+  }
+  .nav-cta:hover { opacity: 0.85; }
+
+  .hero {
+    padding: 80px 32px; text-align: center; background: var(--surface);
+  }
+  .hero h1 {
+    font-family: var(--font-jp); font-size: 34px; font-weight: 600;
+    line-height: 1.4; color: var(--color-green); margin-bottom: 16px;
+    font-feature-settings: "palt";
+  }
+  .hero p {
+    font-family: var(--font-jp); font-size: 14px; font-weight: 400;
+    line-height: 2.0; color: var(--color-black); max-width: 520px; margin: 0 auto 32px;
+  }
+  .hero-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn-primary {
+    display: inline-block; background: var(--color-yellow); color: var(--color-black);
+    padding: 12px 40px; border-radius: 100px; border: none;
+    font-family: var(--font-jp); font-size: 16px; font-weight: 600;
+    text-decoration: none; cursor: pointer; transition: opacity 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-secondary {
+    display: inline-block; background: var(--color-green); color: var(--color-white);
+    padding: 12px 40px; border-radius: 100px; border: none;
+    font-family: var(--font-jp); font-size: 16px; font-weight: 600;
+    text-decoration: none; cursor: pointer; transition: opacity 0.15s;
+  }
+  .btn-secondary:hover { opacity: 0.85; }
+  .btn-tertiary {
+    display: inline-block; background: var(--color-white); color: var(--color-green);
+    padding: 12px 40px; border-radius: 100px;
+    border: 1px solid var(--color-green);
+    font-family: var(--font-jp); font-size: 16px; font-weight: 600;
+    text-decoration: none; cursor: pointer; transition: background 0.15s;
+  }
+  .btn-tertiary:hover { background: var(--color-lightgrey); }
+
+  .section { padding: 64px 32px; max-width: 940px; margin: 0 auto; }
+  .section-label {
+    font-family: var(--font-en); font-size: 16px; font-weight: 500;
+    color: var(--color-green); margin-bottom: 4px; letter-spacing: 0.05em;
+  }
+  .section-title {
+    font-family: var(--font-jp); font-size: 28px; font-weight: 600;
+    line-height: 1.4; color: var(--color-green); margin-bottom: 32px;
+    font-feature-settings: "palt";
+  }
+  .section-divider { border: none; border-top: 1px solid var(--color-grey); margin: 0 32px; }
+
+  /* Colors */
+  .color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+  .color-swatch { border-radius: 8px; overflow: hidden; border: 1px solid var(--color-grey); }
+  .color-swatch-fill { height: 72px; }
+  .color-swatch-label { padding: 8px; font-size: 11px; line-height: 1.4; }
+  .color-swatch-label strong { display: block; font-weight: 600; }
+
+  /* Typography */
+  .type-row { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--color-grey); }
+  .type-row:last-child { border-bottom: none; }
+  .type-meta { font-size: 11px; color: var(--color-darkgrey); margin-bottom: 4px; font-family: var(--font-en); }
+
+  /* Article */
+  .article-sample { max-width: 680px; margin: 0 auto; }
+  .article-sample h2 {
+    font-family: var(--font-jp); font-size: 28px; font-weight: 600;
+    line-height: 1.4; color: var(--color-green); margin-bottom: 16px;
+    font-feature-settings: "palt";
+  }
+  .article-sample p {
+    font-family: var(--font-jp); font-size: 14px; font-weight: 400;
+    line-height: 2.0; color: var(--color-black); margin-bottom: 16px;
+  }
+
+  /* Cards */
+  .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .card { background: var(--color-white); border-radius: 8px; overflow: hidden; border: 1px solid var(--color-grey); }
+  .card-image { height: 160px; background: var(--color-lightgrey); position: relative; }
+  .card-tag {
+    position: absolute; top: 8px; left: 8px;
+    background: var(--color-green); color: var(--color-white);
+    padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600;
+  }
+  .card-tag.sale { background: var(--color-maroon); }
+  .card-body { padding: 16px; }
+  .card-body .title { font-size: 14px; font-weight: 600; line-height: 1.6; color: var(--color-black); margin-bottom: 4px; }
+  .card-body .price { font-size: 16px; font-weight: 600; color: var(--color-green); }
+  .card-body .price-original { font-size: 13px; color: var(--color-darkgrey); text-decoration: line-through; margin-left: 8px; }
+
+  /* Buttons section */
+  .btn-grid { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  .tag-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; color: var(--color-white);
+  }
+
+  /* Forms */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 680px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 13px; font-weight: 600; color: var(--color-green); }
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 12px 16px; border: 1px solid var(--color-grey);
+    border-radius: 8px; font-family: var(--font-jp); font-size: 14px;
+    background: var(--color-white); color: var(--color-black);
+    outline: none; transition: border-color 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    border-color: var(--color-green);
+  }
+  .form-group.error input { border-color: var(--color-maroon); }
+  .form-group .error-text { font-size: 11px; color: var(--color-maroon); }
+  .form-group textarea { resize: vertical; min-height: 80px; }
+  .form-full { grid-column: 1 / -1; }
+
+  /* Elevation */
+  .elevation-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  .elevation-card {
+    padding: 24px; background: var(--color-white); border-radius: 8px;
+    text-align: center;
+  }
+  .elevation-card.flat { border: 1px solid var(--color-grey); }
+  .elevation-card.green-accent { border-left: 4px solid var(--color-green); border: 1px solid var(--color-grey); border-left: 4px solid var(--color-green); }
+  .elevation-label { font-size: 11px; color: var(--color-darkgrey); font-family: var(--font-en); }
+
+  /* Layout */
+  .layout-demo { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .layout-box {
+    height: 80px; background: var(--color-lightgrey); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: var(--color-darkgrey); font-family: var(--font-en);
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <a href="#" class="nav-brand">ZENB</a>
+  <ul class="nav-links">
+    <li><a href="#">商品一覧</a></li>
+    <li><a href="#">ZENBについて</a></li>
+    <li><a href="#">レシピ</a></li>
+    <li><a href="#">読みもの</a></li>
+  </ul>
+  <a href="#" class="nav-cta">カートを見る</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <h1>おいしい と カラダにいい は<br>ひとつになれる</h1>
+  <p>ZENBは、植物を可能な限りまるごと使い、おいしさを追求しながらカラダにやさしい食を届けるブランドです。黄えんどう豆100%の新主食をお届けします。</p>
+  <div class="hero-buttons">
+    <a href="#" class="btn-primary">オトクにはじめる</a>
+    <a href="#" class="btn-secondary">ZENBについて</a>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- COLORS -->
+<section class="section">
+  <p class="section-label">COLORS</p>
+  <h2 class="section-title">カラーパレット</h2>
+  <div class="color-grid">
+    <div class="color-swatch">
+      <div class="color-swatch-fill" style="background: #004727;"></div>
+      <div class="color-swatch-label"><strong>Deep Green</strong>#004727</div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-fill" style="background: #fed14a;"></div>
+      <div class="color-swatch-label"><strong>Yellow</strong>#fed14a</div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-fill" style="background: #4c7e68;"></div>
+      <div class="color-swatch-label"><strong>Sea Green</strong>#4c7e68</div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-fill" style="background: #99b5a9;"></div>
+      <div class="color-swatch-label"><strong>Powder Green</strong>#99b5a9</div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-fill" style="background: #cc3044;"></div>
+      <div class="color-swatch-label"><strong>Maroon</strong>#cc3044</div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-fill" style="background: #ec9a0a;"></div>
+      <div class="color-swatch-label"><strong>Orange</strong>#ec9a0a</div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-fill" style="background: #e6b768;"></div>
+      <div class="color-swatch-label"><strong>Khaki</strong>#e6b768</div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-fill" style="background: #1a1a1a;"></div>
+      <div class="color-swatch-label"><strong>Black</strong>#1a1a1a</div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-fill" style="background: #f4f5f5;"></div>
+      <div class="color-swatch-label"><strong>Light Grey</strong>#f4f5f5</div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-swatch-fill" style="background: #fffdfa;"></div>
+      <div class="color-swatch-label"><strong>Cream</strong>#fffdfa</div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- TYPOGRAPHY -->
+<section class="section">
+  <p class="section-label">TYPOGRAPHY</p>
+  <h2 class="section-title">タイポグラフィ</h2>
+
+  <div class="type-row">
+    <div class="type-meta">H2 Main — Noto Sans JP 34px / 600 / lh: 1.4 / palt</div>
+    <p style="font-family: var(--font-jp); font-size: 34px; font-weight: 600; line-height: 1.4; color: var(--color-green); font-feature-settings: 'palt';">おいしい と カラダにいい</p>
+  </div>
+  <div class="type-row">
+    <div class="type-meta">H2 EN Label — Montserrat 16px / 500 / lh: 1.375</div>
+    <p style="font-family: var(--font-en); font-size: 16px; font-weight: 500; line-height: 1.375; color: var(--color-green);">ABOUT ZENB</p>
+  </div>
+  <div class="type-row">
+    <div class="type-meta">H3 — Noto Sans JP 20px / 600 / lh: 1.7 / palt</div>
+    <p style="font-family: var(--font-jp); font-size: 20px; font-weight: 600; line-height: 1.7; color: var(--color-green); font-feature-settings: 'palt';">今回のみのご購入</p>
+  </div>
+  <div class="type-row">
+    <div class="type-meta">Body — Noto Sans JP 14px / 400 / lh: 2.0</div>
+    <p style="font-family: var(--font-jp); font-size: 14px; font-weight: 400; line-height: 2.0; color: var(--color-black);">ZENBは、ミツカングループの新しいブランドです。植物を可能な限りまるごと使い、おいしさと栄養を両立した食をお届けしています。</p>
+  </div>
+  <div class="type-row">
+    <div class="type-meta">Caption — Noto Sans JP 13px / 400 / lh: 2.0</div>
+    <p style="font-family: var(--font-jp); font-size: 13px; font-weight: 400; line-height: 2.0; color: var(--color-black);">カート内の商品数: 0</p>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ARTICLE -->
+<section class="section">
+  <p class="section-label">PRODUCT</p>
+  <h2 class="section-title">商品紹介サンプル</h2>
+  <div class="article-sample">
+    <h2>黄えんどう豆100%のまるごとヌードル</h2>
+    <p>ZENBヌードルは、黄えんどう豆をまるごと使った新しい麺です。うす皮までまるごと使うことで、たんぱく質や食物繊維がたっぷり。グルテンフリーでありながら、もちもちとした食感と豆の風味が楽しめます。</p>
+    <p>パスタやラーメン、焼きそばなど、様々な料理に使えるZENBヌードル。おいしさとカラダへのやさしさを両立した、新しい主食のかたちです。</p>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- BUTTONS -->
+<section class="section">
+  <p class="section-label">BUTTONS</p>
+  <h2 class="section-title">ボタン・バッジ</h2>
+  <div class="btn-grid">
+    <a href="#" class="btn-primary">オトクにはじめる</a>
+    <a href="#" class="btn-secondary">ZENBについて</a>
+    <a href="#" class="btn-tertiary">映像を見る</a>
+  </div>
+  <div style="margin-top: 24px; display: flex; gap: 8px; flex-wrap: wrap;">
+    <span class="tag-badge" style="background: var(--color-green);">NEW</span>
+    <span class="tag-badge" style="background: var(--color-green);">RECOMMEND</span>
+    <span class="tag-badge" style="background: var(--color-maroon);">SALE</span>
+    <span class="tag-badge" style="background: var(--color-maroon);">FREE</span>
+    <span class="tag-badge" style="background: var(--color-maroon);">定期便</span>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- CARDS -->
+<section class="section">
+  <p class="section-label">CARDS</p>
+  <h2 class="section-title">商品カード</h2>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-image">
+        <span class="card-tag">NEW</span>
+      </div>
+      <div class="card-body">
+        <p class="title">ZENB ヌードル 丸麺</p>
+        <p class="price">¥1,584</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-image">
+        <span class="card-tag sale">SALE</span>
+      </div>
+      <div class="card-body">
+        <p class="title">ZENB マメロニ</p>
+        <p class="price">¥1,296 <span class="price-original">¥1,584</span></p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-image">
+        <span class="card-tag">RECOMMEND</span>
+      </div>
+      <div class="card-body">
+        <p class="title">ZENB ヌードル はじめてセット</p>
+        <p class="price">¥2,862</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- FORMS -->
+<section class="section">
+  <p class="section-label">FORMS</p>
+  <h2 class="section-title">フォーム</h2>
+  <div class="form-grid">
+    <div class="form-group">
+      <label>お名前</label>
+      <input type="text" placeholder="山田 太郎">
+    </div>
+    <div class="form-group">
+      <label>メールアドレス</label>
+      <input type="email" placeholder="example@email.com">
+    </div>
+    <div class="form-group">
+      <label>商品</label>
+      <select>
+        <option>選択してください</option>
+        <option>ZENB ヌードル 丸麺</option>
+        <option>ZENB マメロニ</option>
+      </select>
+    </div>
+    <div class="form-group error">
+      <label>電話番号</label>
+      <input type="tel" value="abc" style="border-color: var(--color-maroon);">
+      <span class="error-text">正しい電話番号を入力してください</span>
+    </div>
+    <div class="form-group form-full">
+      <label>お問い合わせ内容</label>
+      <textarea placeholder="ご質問やご意見をお書きください"></textarea>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ELEVATION -->
+<section class="section">
+  <p class="section-label">ELEVATION</p>
+  <h2 class="section-title">深度</h2>
+  <div class="elevation-grid">
+    <div class="elevation-card flat">
+      <p class="elevation-label">Level 0 — Flat (default)</p>
+    </div>
+    <div class="elevation-card green-accent">
+      <p class="elevation-label">Green Left Border Accent</p>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- LAYOUT -->
+<section class="section">
+  <p class="section-label">LAYOUT</p>
+  <h2 class="section-title">レイアウト</h2>
+  <div class="layout-demo">
+    <div class="layout-box">1 / 4</div>
+    <div class="layout-box">2 / 4</div>
+    <div class="layout-box">3 / 4</div>
+    <div class="layout-box">4 / 4</div>
+  </div>
+  <div style="margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div class="layout-box">1 / 2</div>
+    <div class="layout-box">2 / 2</div>
+  </div>
+</section>
+
+</body>
+</html>
