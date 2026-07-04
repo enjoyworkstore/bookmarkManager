@@ -1,5 +1,4 @@
 const STORAGE_KEY = "bookmarkShelfState";
-const THEME_CACHE_KEY = "bookmarkShelfTheme";
 const BACKGROUND_DB_NAME = "bookmarkShelfNewtab";
 const BACKGROUND_DB_VERSION = 1;
 const BACKGROUND_STORE_NAME = "backgroundImages";
@@ -33,6 +32,8 @@ const UI_TEXT = {
     frequent: "よく使うもの",
     pinnedBadge: "固定",
     frequentBadge: "よく使う",
+    pinBookmark: "固定に追加",
+    unpinBookmark: "固定を解除",
     searchResults: "検索結果",
     recent: "最近追加",
     empty: "まだ表示できるブックマークがありません。",
@@ -56,6 +57,8 @@ const UI_TEXT = {
     frequent: "Frequently used",
     pinnedBadge: "Pinned",
     frequentBadge: "Frequent",
+    pinBookmark: "Add to pinned",
+    unpinBookmark: "Remove from pinned",
     searchResults: "Search results",
     recent: "Recently added",
     empty: "No bookmarks to show yet.",
@@ -105,8 +108,9 @@ let backgroundObjectUrls = new Map();
 let renderTimer = 0;
 let clockTimer = 0;
 let calendarCursor = new Date();
+let draggedPinnedBookmarkId = null;
 
-setBootTheme(getCachedTheme() || getSystemTheme());
+setBootTheme("dark");
 init().catch(() => {
   elements.primaryEmpty.classList.remove("hidden");
 });
@@ -133,6 +137,7 @@ async function init() {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== "local" || !changes[STORAGE_KEY]) return;
     state = normalizeState(changes[STORAGE_KEY].newValue || {});
+    reconcilePinnedOrder();
     applyTheme();
     applyLanguage();
     applyBackgroundImage();
@@ -147,6 +152,9 @@ async function init() {
   ]);
   state = normalizeState(stateResult[STORAGE_KEY] || {});
   bookmarks = flattenBookmarkNodes(tree);
+  if (reconcilePinnedOrder()) {
+    await chrome.storage.local.set({ [STORAGE_KEY]: { ...state, pinnedOrder: state.pinnedOrder } });
+  }
   backgroundImages = await getSavedBackgroundImages();
   applyTheme();
   applyLanguage();
@@ -162,6 +170,7 @@ function normalizeState(value = {}) {
     ...value,
     usage: value.usage && typeof value.usage === "object" ? value.usage : {},
     pinned: value.pinned && typeof value.pinned === "object" ? value.pinned : {},
+    pinnedOrder: normalizeIdList(value.pinnedOrder),
     frequentOrder: normalizeIdList(value.frequentOrder),
     theme: value.theme === "dark" ? "dark" : "light",
     language: value.language === "en" ? "en" : "ja",
@@ -204,12 +213,12 @@ function applyLanguage() {
 }
 
 function applyTheme() {
-  setBootTheme(state.theme);
+  setBootTheme("dark");
   applyNewtabVisualSettings();
 }
 
 function applyNewtabVisualSettings() {
-  const isDark = state.theme === "dark";
+  const isDark = true;
   document.body.style.setProperty("--newtab-shell-bg", isDark ? "#10141d" : "#f7f7f5");
   document.body.style.setProperty("--newtab-panel-bg", isDark ? "rgba(16, 20, 29, 0.78)" : "rgba(247, 247, 245, 0.82)");
   document.body.style.setProperty("--newtab-card-bg", isDark ? "rgba(15, 23, 42, 0.08)" : "rgba(255, 255, 255, 0.05)");
@@ -273,6 +282,25 @@ function flattenBookmarkNodes(nodes, folderTrail = []) {
   return items;
 }
 
+function reconcilePinnedOrder() {
+  const pinnedIds = new Set(Object.keys(state.pinned || {}).filter((id) => state.pinned[id]));
+  const savedIds = normalizeIdList(state.pinnedOrder).filter((id) => pinnedIds.has(id));
+  const savedSet = new Set(savedIds);
+  const registrationIds = bookmarks
+    .filter((bookmark) => pinnedIds.has(bookmark.id) && !savedSet.has(bookmark.id))
+    .sort((a, b) => (a.dateAdded || 0) - (b.dateAdded || 0) || compareTitle(a, b))
+    .map((bookmark) => bookmark.id);
+  const nextOrder = [...savedIds, ...registrationIds];
+  const changed = nextOrder.length !== state.pinnedOrder.length
+    || nextOrder.some((id, index) => id !== state.pinnedOrder[index]);
+  state.pinnedOrder = nextOrder;
+  return changed;
+}
+
+function getPinnedOrderMap() {
+  return new Map(normalizeIdList(state.pinnedOrder).map((id, index) => [id, index]));
+}
+
 function scheduleRender() {
   clearTimeout(renderTimer);
   renderTimer = setTimeout(() => {
@@ -305,10 +333,24 @@ function render() {
 
 function getFrequentBookmarks() {
   const orderMap = new Map(normalizeIdList(state.frequentOrder).map((id, index) => [id, index]));
+  const pinnedOrderMap = getPinnedOrderMap();
   return bookmarks
     .filter((bookmark) => state.pinned[bookmark.id] || state.usage[bookmark.id]?.count)
-    .sort((a, b) => compareByFrequentOrder(a, b, orderMap) || compareByUse(a, b))
+    .sort((a, b) => comparePrimaryOrder(a, b, orderMap, pinnedOrderMap))
     .slice(0, FREQUENT_LIMIT);
+}
+
+function comparePrimaryOrder(a, b, frequentOrderMap, pinnedOrderMap) {
+  const aPinned = !!state.pinned[a.id];
+  const bPinned = !!state.pinned[b.id];
+  const pinnedDelta = Number(bPinned) - Number(aPinned);
+  if (pinnedDelta) return pinnedDelta;
+  if (aPinned && bPinned) {
+    return compareByFrequentOrder(a, b, pinnedOrderMap)
+      || (a.dateAdded || 0) - (b.dateAdded || 0)
+      || compareTitle(a, b);
+  }
+  return compareByFrequentOrder(a, b, frequentOrderMap) || compareByUse(a, b);
 }
 
 function getRecentBookmarks(limit = RECENT_LIMIT) {
@@ -352,15 +394,20 @@ function renderGrid(grid, items) {
 }
 
 function createBookmarkLink(bookmark) {
+  const card = document.createElement("article");
+  card.className = "newtab-bookmark";
   const link = document.createElement("a");
-  link.className = "newtab-bookmark";
+  link.className = "newtab-bookmark-link";
   link.href = bookmark.url;
   link.title = bookmark.url;
+  link.draggable = false;
   const host = safeHost(bookmark.url);
   const pinned = !!state.pinned[bookmark.id];
   const useCount = Number(state.usage[bookmark.id]?.count) || 0;
   const kind = pinned ? "pinned" : useCount ? "frequent" : "regular";
-  link.dataset.kind = kind;
+  card.dataset.kind = kind;
+  card.dataset.bookmarkId = bookmark.id;
+  card.draggable = pinned;
   link.innerHTML = `
     <span class="newtab-favicon"><img alt="" loading="lazy"></span>
     <span class="newtab-bookmark-text">
@@ -380,6 +427,46 @@ function createBookmarkLink(bookmark) {
   } else {
     badge.remove();
   }
+  const pinButton = document.createElement("button");
+  pinButton.className = "newtab-pin-button";
+  pinButton.type = "button";
+  pinButton.draggable = false;
+  pinButton.textContent = pinned ? "★" : "☆";
+  pinButton.dataset.active = pinned ? "true" : "false";
+  pinButton.setAttribute("aria-pressed", String(pinned));
+  pinButton.setAttribute("aria-label", pinned ? t("unpinBookmark") : t("pinBookmark"));
+  pinButton.title = pinned ? t("unpinBookmark") : t("pinBookmark");
+  pinButton.addEventListener("click", () => toggleBookmarkPinned(bookmark));
+  if (pinned) {
+    card.addEventListener("dragstart", (event) => {
+      draggedPinnedBookmarkId = bookmark.id;
+      card.classList.add("dragging");
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", bookmark.id);
+      }
+    });
+    card.addEventListener("dragover", (event) => {
+      if (!draggedPinnedBookmarkId || draggedPinnedBookmarkId === bookmark.id) return;
+      event.preventDefault();
+      clearNewtabDropIndicators();
+      card.dataset.dropPosition = getNewtabDropPosition(event, card);
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    });
+    card.addEventListener("dragleave", (event) => {
+      if (event.relatedTarget && card.contains(event.relatedTarget)) return;
+      delete card.dataset.dropPosition;
+    });
+    card.addEventListener("drop", async (event) => {
+      if (!draggedPinnedBookmarkId || draggedPinnedBookmarkId === bookmark.id) return;
+      event.preventDefault();
+      const sourceId = draggedPinnedBookmarkId;
+      const position = getNewtabDropPosition(event, card);
+      clearNewtabDragState();
+      await reorderPinnedBookmarks(sourceId, bookmark.id, position);
+    });
+    card.addEventListener("dragend", clearNewtabDragState);
+  }
   link.addEventListener("click", async (event) => {
     event.preventDefault();
     queueBookmarkOpenRecord(bookmark);
@@ -395,7 +482,78 @@ function createBookmarkLink(bookmark) {
     queueBookmarkOpenRecord(bookmark);
     openBookmarkInNewTab(bookmark.url, false).catch(() => {});
   });
-  return link;
+  card.append(link, pinButton);
+  return card;
+}
+
+async function toggleBookmarkPinned(bookmark) {
+  const id = String(bookmark?.id || "").trim();
+  if (!id) return;
+  const result = await chrome.storage.local.get(STORAGE_KEY).catch(() => ({}));
+  const latestState = result[STORAGE_KEY] || {};
+  const latestPinned = latestState.pinned && typeof latestState.pinned === "object"
+    ? { ...latestState.pinned }
+    : {};
+  const savedPinnedOrder = normalizeIdList(latestState.pinnedOrder).filter((itemId) => latestPinned[itemId]);
+  const registrationIds = bookmarks
+    .filter((item) => latestPinned[item.id] && !savedPinnedOrder.includes(item.id))
+    .sort((a, b) => (a.dateAdded || 0) - (b.dateAdded || 0) || compareTitle(a, b))
+    .map((item) => item.id);
+  const latestPinnedOrder = [...savedPinnedOrder, ...registrationIds].filter((itemId) => itemId !== id);
+  if (latestPinned[id]) {
+    delete latestPinned[id];
+  } else {
+    latestPinned[id] = true;
+    latestPinnedOrder.push(id);
+  }
+  const nextState = { ...latestState, pinned: latestPinned, pinnedOrder: latestPinnedOrder };
+  state = normalizeState(nextState);
+  await chrome.storage.local.set({ [STORAGE_KEY]: nextState });
+  render();
+}
+
+function getNewtabDropPosition(event, card) {
+  const rect = card.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  if (Math.abs(event.clientY - centerY) < rect.height * 0.35) {
+    return event.clientX > centerX ? "after" : "before";
+  }
+  return event.clientY > centerY ? "after" : "before";
+}
+
+function clearNewtabDropIndicators() {
+  document.querySelectorAll(".newtab-bookmark[data-drop-position]").forEach((card) => {
+    delete card.dataset.dropPosition;
+  });
+}
+
+function clearNewtabDragState() {
+  draggedPinnedBookmarkId = null;
+  clearNewtabDropIndicators();
+  document.querySelectorAll(".newtab-bookmark.dragging").forEach((card) => card.classList.remove("dragging"));
+}
+
+async function reorderPinnedBookmarks(sourceId, targetId, position = "before") {
+  if (!sourceId || !targetId || sourceId === targetId) return;
+  const result = await chrome.storage.local.get(STORAGE_KEY).catch(() => ({}));
+  const latestState = result[STORAGE_KEY] || {};
+  const latestPinned = latestState.pinned && typeof latestState.pinned === "object" ? latestState.pinned : {};
+  if (!latestPinned[sourceId] || !latestPinned[targetId]) return;
+  const registrationIds = bookmarks
+    .filter((bookmark) => latestPinned[bookmark.id])
+    .sort((a, b) => (a.dateAdded || 0) - (b.dateAdded || 0) || compareTitle(a, b))
+    .map((bookmark) => bookmark.id);
+  const savedOrder = normalizeIdList(latestState.pinnedOrder).filter((id) => latestPinned[id]);
+  const baseOrder = [...savedOrder, ...registrationIds.filter((id) => !savedOrder.includes(id))];
+  const nextOrder = baseOrder.filter((id) => id !== sourceId);
+  const targetIndex = nextOrder.indexOf(targetId);
+  if (targetIndex < 0) return;
+  nextOrder.splice(targetIndex + (position === "after" ? 1 : 0), 0, sourceId);
+  const nextState = { ...latestState, pinnedOrder: nextOrder };
+  state = normalizeState(nextState);
+  await chrome.storage.local.set({ [STORAGE_KEY]: nextState });
+  render();
 }
 
 function queueBookmarkOpenRecord(bookmark) {
@@ -756,24 +914,6 @@ function safeHost(url) {
   }
 }
 
-function getCachedTheme() {
-  try {
-    const theme = localStorage.getItem(THEME_CACHE_KEY);
-    return theme === "dark" || theme === "light" ? theme : "";
-  } catch {
-    return "";
-  }
-}
-
-function getSystemTheme() {
-  return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
-}
-
 function setBootTheme(theme) {
   document.documentElement.dataset.theme = theme === "dark" ? "dark" : "light";
-  try {
-    localStorage.setItem(THEME_CACHE_KEY, theme === "dark" ? "dark" : "light");
-  } catch {
-    // Storage can be unavailable in restricted contexts.
-  }
 }

@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design System Preview: visvim</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* === visvim Color Tokens (実測値) === */
+    --charcoal: #222222;
+    --pure-black: #000000;
+    --muted-gray: #b7b7b7;
+    --button-gray: #707070;
+
+    --white: #ffffff;
+    --tag-bg: #fafafa;
+    --footer-dark: #222222;
+    --overlay-gray: #8b8b8b;
+    --overlay-semi: rgba(139, 139, 139, 0.5);
+
+    --subsequence-blue: #d2e3ea;
+
+    --thin-border: #707070;
+    --tag-border: #e5e5e5;
+    --pagination-inactive: #e5e5e5;
+
+    /* === Fonts ===
+       Note: 実サイトは Adobe Fonts の "acumin-pro" + "heisei-kaku-gothic-std" を使用。
+       本プレビューでは代替として Inter + Noto Sans JP を使用。 */
+    --font-base: "Inter", "Noto Sans JP", sans-serif;
+    --font-jp: "Noto Sans JP", sans-serif;
+    --font-button: "Helvetica Neue", Helvetica, Roboto, Arial, sans-serif;
+    --font-mono: SFMono-Regular, Consolas, Menlo, Courier, monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--white);
+    color: var(--charcoal);
+    font-family: var(--font-base);
+    font-size: 12px; font-weight: 300; line-height: normal;
+    letter-spacing: normal;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* NAV */
+  .nav {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px; height: 64px;
+    background: var(--white);
+  }
+  .nav-brand {
+    font-family: var(--font-base); font-size: 14px; font-weight: 600;
+    color: var(--charcoal); text-decoration: none; letter-spacing: normal;
+    text-transform: lowercase;
+  }
+  .nav-links { display: flex; gap: 40px; list-style: none; }
+  .nav-links a {
+    font-family: var(--font-base); font-size: 11px; font-weight: 700;
+    color: var(--pure-black); text-decoration: none; letter-spacing: normal;
+  }
+  .nav-links a:hover { opacity: 0.6; }
+
+  /* HERO */
+  .hero {
+    padding: 96px 40px 80px;
+    text-align: center;
+    background: var(--white);
+  }
+  .hero-eyebrow {
+    font-family: var(--font-base); font-size: 12px; font-weight: 500;
+    color: var(--muted-gray); margin-bottom: 12px;
+    letter-spacing: normal;
+    text-transform: uppercase;
+  }
+  .hero h1 {
+    font-family: var(--font-base);
+    font-size: 14px; font-weight: 600; line-height: normal;
+    color: var(--charcoal); margin-bottom: 24px;
+    letter-spacing: normal;
+  }
+  .hero p {
+    font-size: 12px; font-weight: 300; line-height: 1.6;
+    color: var(--charcoal); max-width: 600px; margin: 0 auto 40px;
+    letter-spacing: normal;
+  }
+  .hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+
+  /* BUTTONS */
+  .btn-pill {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--white); color: var(--charcoal);
+    padding: 18px 55px;
+    border: 1px solid var(--thin-border);
+    border-radius: 18px;
+    font-family: var(--font-base); font-size: 11px; font-weight: 500;
+    line-height: 1.0; text-decoration: none; cursor: pointer;
+    letter-spacing: normal;
+    transition: opacity 0.2s;
+  }
+  .btn-pill:hover { opacity: 0.7; }
+  .btn-pill-dark {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--footer-dark); color: var(--white);
+    padding: 18px 55px;
+    border: 1px solid var(--white);
+    border-radius: 18px;
+    font-family: var(--font-base); font-size: 11px; font-weight: 500;
+    line-height: 1.0; text-decoration: none; cursor: pointer;
+    letter-spacing: normal;
+    transition: opacity 0.2s;
+  }
+  .btn-pill-dark:hover { opacity: 0.8; }
+  .btn-region {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--white); color: var(--pure-black);
+    padding: 10px 28px;
+    border: 1px solid var(--thin-border);
+    border-radius: 9999px;
+    font-family: var(--font-base); font-size: 12px; font-weight: 500;
+    line-height: 1.3; letter-spacing: 0.36px;
+    text-decoration: none; cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn-region:hover { opacity: 0.7; }
+  .btn-tag {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--tag-bg); color: var(--button-gray);
+    padding: 6px 20px;
+    border: 1px solid var(--tag-border);
+    border-radius: 17px;
+    font-family: var(--font-base); font-size: 10px; font-weight: 400;
+    line-height: normal; letter-spacing: normal;
+    text-decoration: none; cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn-tag:hover { background: var(--tag-border); }
+  .btn-tag-small {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--white); color: var(--button-gray);
+    padding: 4px 15px;
+    border: none;
+    border-radius: 13px;
+    font-family: var(--font-jp); font-size: 8px; font-weight: 500;
+    line-height: normal; letter-spacing: normal;
+    text-decoration: none; cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn-tag-small:hover { background: var(--tag-bg); }
+  .btn-subseq {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--subsequence-blue); color: var(--charcoal);
+    padding: 18px 55px;
+    border: none;
+    border-radius: 18px;
+    font-family: var(--font-base); font-size: 11px; font-weight: 500;
+    line-height: 1.0; text-decoration: none; cursor: pointer;
+    letter-spacing: normal;
+    transition: opacity 0.2s;
+  }
+  .btn-subseq:hover { opacity: 0.8; }
+
+  /* SECTIONS */
+  .section { padding: 80px 40px; max-width: 1100px; margin: 0 auto; }
+  .section-eyebrow {
+    font-family: var(--font-base); font-size: 12px; font-weight: 500;
+    color: var(--muted-gray); letter-spacing: normal; margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .section-title {
+    font-family: var(--font-base);
+    font-size: 16px; font-weight: 500;
+    color: var(--charcoal); margin-bottom: 48px; line-height: normal;
+    letter-spacing: normal;
+  }
+  .section-divider { border: none; height: 1px; background: var(--tag-border); margin: 0; }
+  .section-white { background: var(--white); }
+  .section-inner { max-width: 1100px; margin: 0 auto; }
+
+  /* COLORS */
+  .color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .color-swatch { background: var(--white); border: 1px solid var(--tag-border); overflow: hidden; }
+  .color-swatch-block { height: 80px; width: 100%; }
+  .color-swatch-info { padding: 12px 14px; }
+  .color-swatch-name {
+    font-family: var(--font-base);
+    font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--charcoal);
+    letter-spacing: normal;
+  }
+  .color-swatch-hex { font-size: 10px; color: var(--button-gray); font-family: var(--font-mono); letter-spacing: normal; }
+  .color-swatch-role { font-size: 10px; color: var(--muted-gray); margin-top: 4px; letter-spacing: normal; }
+  .color-group-label {
+    font-family: var(--font-base); font-size: 12px; font-weight: 500;
+    color: var(--muted-gray); margin: 24px 0 10px; letter-spacing: normal;
+    text-transform: uppercase;
+  }
+
+  /* TYPOGRAPHY */
+  .type-sample { margin-bottom: 32px; padding-bottom: 28px; border-bottom: 1px solid var(--tag-border); }
+  .type-sample:last-child { border-bottom: none; }
+  .type-meta { font-family: var(--font-mono); font-size: 10px; font-weight: 400; color: var(--button-gray); margin-top: 12px; letter-spacing: normal; }
+  .type-context { display: inline-block; background: var(--charcoal); color: var(--white); font-size: 9px; padding: 2px 8px; margin-left: 8px; letter-spacing: normal; text-transform: uppercase; }
+
+  /* PRODUCT CARDS */
+  .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 32px; }
+  .product-card {
+    background: transparent;
+    text-decoration: none; color: var(--charcoal);
+    display: flex; flex-direction: column;
+  }
+  .product-card-image {
+    aspect-ratio: 4/5; background: linear-gradient(135deg, #d4cfc7, #a8a29e);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--white); font-family: var(--font-base); font-weight: 500; font-size: 14px; letter-spacing: normal;
+  }
+  .product-card-image.warm { background: linear-gradient(135deg, #c9b99a, #8b7d6b); }
+  .product-card-image.cool { background: linear-gradient(135deg, #b8c5cc, #7e9099); }
+  .product-card-image.dark { background: linear-gradient(135deg, #5a5a5a, #3a3a3a); }
+  .product-card-body { padding: 12px 0 0; }
+  .product-card-category {
+    font-family: var(--font-base);
+    font-size: 12px; font-weight: 500; line-height: 12px; margin-bottom: 8px;
+    color: var(--muted-gray); letter-spacing: normal;
+  }
+  .product-card h3 {
+    font-family: var(--font-base);
+    font-size: 14px; font-weight: 600; line-height: 14px; margin-bottom: 8px;
+    color: var(--charcoal); letter-spacing: normal;
+  }
+  .product-card p { font-size: 11px; font-weight: 300; line-height: normal; color: var(--charcoal); letter-spacing: normal; }
+
+  /* BUTTONS section */
+  .button-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 32px; }
+  .button-item { text-align: center; }
+  .button-label { font-family: var(--font-mono); font-size: 10px; font-weight: 400; color: var(--button-gray); margin-top: 12px; letter-spacing: normal; }
+
+  /* FEATURE COPY */
+  .feature-copy {
+    padding: 96px 40px;
+    background: var(--white);
+    text-align: center;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .feature-copy-large {
+    font-family: var(--font-base);
+    font-size: 16px; font-weight: 500; line-height: normal;
+    color: var(--charcoal); margin-bottom: 12px; letter-spacing: normal;
+  }
+  .feature-copy-sub {
+    font-size: 12px; font-weight: 300; line-height: normal;
+    color: var(--muted-gray); letter-spacing: normal;
+  }
+  .feature-copy-title {
+    font-family: var(--font-base);
+    font-size: 14px; font-weight: 600; line-height: 14px;
+    color: var(--charcoal); margin-top: 24px; letter-spacing: normal;
+  }
+
+  /* FORM */
+  .form-group { margin-bottom: 24px; max-width: 480px; }
+  .form-label {
+    display: block; font-family: var(--font-base);
+    font-size: 12px; font-weight: 500; color: var(--muted-gray); margin-bottom: 8px;
+    letter-spacing: normal;
+    text-transform: uppercase;
+  }
+  .form-input {
+    width: 100%; background: transparent; color: var(--charcoal);
+    border: none; border-bottom: 1px solid var(--tag-border);
+    padding: 8px 0; border-radius: 0px;
+    font-family: var(--font-base); font-size: 14px; font-weight: 300;
+    letter-spacing: normal; outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus, .form-input--focus { border-bottom-color: var(--charcoal); }
+  .form-input::placeholder { color: var(--muted-gray); }
+  .form-input--error { border-bottom-color: #c0392b; }
+  .form-state-label { font-size: 10px; color: var(--button-gray); margin-top: 6px; font-family: var(--font-mono); letter-spacing: normal; }
+  .form-error-text { font-size: 10px; color: #c0392b; margin-top: 6px; font-family: var(--font-mono); letter-spacing: normal; }
+
+  /* ELEVATION */
+  .elevation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; }
+  .elevation-item {
+    height: 120px; display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 10px; color: var(--button-gray);
+  }
+
+  /* SPACING */
+  .spacing-row { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .spacing-item { text-align: center; }
+  .spacing-block { background: var(--charcoal); height: 32px; border-radius: 0; margin-bottom: 8px; }
+  .spacing-value { font-family: var(--font-mono); font-size: 10px; color: var(--button-gray); }
+
+  /* WIDTH */
+  .width-bar { height: 32px; background: var(--tag-bg); margin-bottom: 8px; }
+  .width-bar-inner { height: 100%; background: var(--charcoal); }
+  .width-bar-label { font-size: 12px; font-weight: 500; color: var(--charcoal); margin-bottom: 4px; letter-spacing: normal; }
+  .width-bar-value { font-family: var(--font-mono); font-size: 10px; color: var(--button-gray); letter-spacing: normal; }
+
+  /* DRAWER PREVIEW */
+  .drawer-preview {
+    background: var(--overlay-gray);
+    padding: 40px;
+    color: var(--white);
+    margin-top: 32px;
+  }
+  .drawer-preview p {
+    font-size: 12px; font-weight: 300; color: var(--white); margin-bottom: 12px;
+  }
+  .drawer-preview .bold { font-weight: 500; }
+
+  /* FOOTER */
+  .footer {
+    padding: 64px 40px 40px;
+    background: var(--charcoal);
+    color: var(--white);
+    text-align: center;
+    font-size: 11px; font-weight: 300; line-height: normal; letter-spacing: normal;
+  }
+  .footer a { color: var(--white); text-decoration: underline; opacity: 0.6; }
+  .footer a:hover { opacity: 1; }
+  .footer p { margin-bottom: 8px; }
+  .footer-tiny {
+    font-family: var(--font-base);
+    font-size: 10px; color: var(--muted-gray); letter-spacing: normal;
+    margin-top: 16px;
+  }
+
+  /* PAGINATION DOTS */
+  .pagination-dots { display: flex; gap: 8px; justify-content: center; margin-top: 24px; }
+  .pagination-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--pagination-inactive);
+    border: none; cursor: pointer;
+  }
+  .pagination-dot.active { background: var(--pure-black); }
+
+  @media (max-width: 769px) {
+    .hero h1 { font-size: 14px; }
+    .section-title { font-size: 14px; }
+    .nav-links { display: none; }
+    .section { padding: 56px 20px; }
+    .feature-copy { padding: 64px 20px; }
+    .product-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-brand" href="#">visvim</a>
+  <ul class="nav-links">
+    <li><a href="#colors">About visvim</a></li>
+    <li><a href="#typography">Dissertation</a></li>
+    <li><a href="#products">Collections</a></li>
+    <li><a href="#buttons">Web Store</a></li>
+  </ul>
+</nav>
+
+<section class="hero">
+  <div class="hero-eyebrow">design system preview</div>
+  <h1>The thoughts we have at visvim</h1>
+  <p>visvim（visvim.tv）から抽出したデザイントークンのカタログ。極小タイポ（10〜12px）+ weight 300 Light + pill CTA（radius 18px）+ ほぼ無彩色パレット。Adobe Fonts の acumin-pro + heisei-kaku-gothic-std を Inter + Noto Sans JP で代替。computed style 実測値に基づく。</p>
+  <div class="hero-buttons">
+    <a class="btn-pill" href="#">Read</a>
+    <a class="btn-pill" href="#">Web Store</a>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- COLORS -->
+<section class="section" id="colors">
+  <div class="section-eyebrow">01 / colors</div>
+  <h2 class="section-title">Color Palette</h2>
+
+  <div class="color-group-label">brand / foreground</div>
+  <div class="color-grid">
+    <div class="color-swatch"><div class="color-swatch-block" style="background:#222222"></div><div class="color-swatch-info"><div class="color-swatch-name">Charcoal</div><div class="color-swatch-hex">#222222</div><div class="color-swatch-role">テキスト基本色</div></div></div>
+    <div class="color-swatch"><div class="color-swatch-block" style="background:#000000"></div><div class="color-swatch-info"><div class="color-swatch-name">Pure Black</div><div class="color-swatch-hex">#000000</div><div class="color-swatch-role">リンク・ナビ</div></div></div>
+    <div class="color-swatch"><div class="color-swatch-block" style="background:#b7b7b7"></div><div class="color-swatch-info"><div class="color-swatch-name">Muted Gray</div><div class="color-swatch-hex">#b7b7b7</div><div class="color-swatch-role">カテゴリ・セカンダリ</div></div></div>
+    <div class="color-swatch"><div class="color-swatch-block" style="background:#707070"></div><div class="color-swatch-info"><div class="color-swatch-name">Button Gray</div><div class="color-swatch-hex">#707070</div><div class="color-swatch-role">ボタン罫線・タグ文字</div></div></div>
+  </div>
+
+  <div class="color-group-label">surface</div>
+  <div class="color-grid">
+    <div class="color-swatch"><div class="color-swatch-block" style="background:#ffffff; border-bottom:1px solid #eee"></div><div class="color-swatch-info"><div class="color-swatch-name">White</div><div class="color-swatch-hex">#ffffff</div><div class="color-swatch-role">ページ背景・CTA 背景</div></div></div>
+    <div class="color-swatch"><div class="color-swatch-block" style="background:#fafafa; border-bottom:1px solid #eee"></div><div class="color-swatch-info"><div class="color-swatch-name">Tag Background</div><div class="color-swatch-hex">#fafafa</div><div class="color-swatch-role">タグ・フィルターの面色</div></div></div>
+    <div class="color-swatch"><div class="color-swatch-block" style="background:#222222"></div><div class="color-swatch-info"><div class="color-swatch-name">Footer Dark</div><div class="color-swatch-hex">#222222</div><div class="color-swatch-role">Subscribe ボタン面</div></div></div>
+    <div class="color-swatch"><div class="color-swatch-block" style="background:#8b8b8b"></div><div class="color-swatch-info"><div class="color-swatch-name">Overlay Gray</div><div class="color-swatch-hex">#8b8b8b</div><div class="color-swatch-role">ドロワー・モーダル背景</div></div></div>
+  </div>
+
+  <div class="color-group-label">accent</div>
+  <div class="color-grid">
+    <div class="color-swatch"><div class="color-swatch-block" style="background:#d2e3ea"></div><div class="color-swatch-info"><div class="color-swatch-name">Subsequence Blue</div><div class="color-swatch-hex">#d2e3ea</div><div class="color-swatch-role">唯一の有彩色（外部リンク）</div></div></div>
+  </div>
+
+  <div class="color-group-label">border</div>
+  <div class="color-grid">
+    <div class="color-swatch"><div class="color-swatch-block" style="background:#707070"></div><div class="color-swatch-info"><div class="color-swatch-name">Thin Border</div><div class="color-swatch-hex">#707070</div><div class="color-swatch-role">CTA ボタン罫線</div></div></div>
+    <div class="color-swatch"><div class="color-swatch-block" style="background:#e5e5e5"></div><div class="color-swatch-info"><div class="color-swatch-name">Tag Border</div><div class="color-swatch-hex">#e5e5e5</div><div class="color-swatch-role">タグ・ページネーション</div></div></div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- TYPOGRAPHY -->
+<section class="section section-white" style="max-width:none;">
+<div class="section-inner" style="max-width:1100px; margin:0 auto; padding:80px 40px;">
+  <div class="section-eyebrow">02 / typography</div>
+  <h2 class="section-title">Typography</h2>
+
+  <div class="type-sample">
+    <div style="font-family:var(--font-base); font-size:14px; font-weight:600; line-height:normal; color:#222222; letter-spacing:normal;">The thoughts we have at visvim</div>
+    <div class="type-meta">acumin-pro / 14px / 600 / line-height: normal / letter-spacing: normal / color #222222<span class="type-context">h1</span></div>
+  </div>
+  <div class="type-sample">
+    <div style="font-family:var(--font-base); font-size:16px; font-weight:500; line-height:normal; color:#222222; letter-spacing:normal;">Recent Release</div>
+    <div class="type-meta">acumin-pro / 16px / 500 / line-height: normal<span class="type-context">h2 Section</span></div>
+  </div>
+  <div class="type-sample">
+    <div style="font-family:var(--font-base); font-size:16px; font-weight:700; line-height:16px; color:#222222; letter-spacing:normal;">CHRISTO SANDAL-FOLK</div>
+    <div class="type-meta">acumin-pro / 16px / 700 / line-height: 1.0 (16px)<span class="type-context">h2 Product</span></div>
+  </div>
+  <div class="type-sample">
+    <div style="font-family:var(--font-base); font-size:14px; font-weight:600; line-height:21px; color:#222222; letter-spacing:0.42px;">Delivery Location/ Web Store</div>
+    <div class="type-meta">acumin-pro / 14px / 600 / line-height: 1.5 (21px) / letter-spacing: 0.42px (0.03em)<span class="type-context">Modal Head</span></div>
+  </div>
+  <div class="type-sample">
+    <div style="font-family:var(--font-base); font-size:14px; font-weight:600; line-height:14px; color:#222222; letter-spacing:normal;">WMV VISVIM SANTA FE</div>
+    <div class="type-meta">acumin-pro / 14px / 600 / line-height: 1.0 (14px)<span class="type-context">Product Title</span></div>
+  </div>
+  <div class="type-sample">
+    <div style="font-family:var(--font-base); font-size:12px; font-weight:500; line-height:12px; color:#b7b7b7; letter-spacing:normal;">Dissertation</div>
+    <div class="type-meta">acumin-pro / 12px / 500 / line-height: 1.0 (12px) / color #b7b7b7<span class="type-context">Category Label</span></div>
+  </div>
+  <div class="type-sample">
+    <div style="font-family:var(--font-base); font-size:12px; font-weight:500; line-height:normal; color:#222222; letter-spacing:normal;">手仕事から生まれる素材への探求、伝統と革新を行き来するものづくりの姿勢。visvim は服を通じてその思想を伝える。</div>
+    <div class="type-meta">acumin-pro / 12px / 500 / line-height: normal<span class="type-context">Body Medium</span></div>
+  </div>
+  <div class="type-sample">
+    <div style="font-family:var(--font-base); font-size:11px; font-weight:300; line-height:normal; color:#222222; letter-spacing:normal;">天然染料やヴィンテージの技法を現代の衣服に取り入れ、経年変化を楽しめるプロダクトを生み出す。それが visvim の根幹にある哲学です。</div>
+    <div class="type-meta">acumin-pro / 11px / 300 / line-height: normal<span class="type-context">Body Light</span></div>
+  </div>
+  <div class="type-sample">
+    <div style="font-family:var(--font-base); font-size:11px; font-weight:700; line-height:normal; color:#000000; letter-spacing:normal;">About visvim &nbsp;&nbsp; Dissertation &nbsp;&nbsp; Web Store</div>
+    <div class="type-meta">acumin-pro / 11px / 700 / line-height: normal / color #000000<span class="type-context">Nav</span></div>
+  </div>
+  <div class="type-sample">
+    <div style="font-family:var(--font-base); font-size:12px; font-weight:500; line-height:15.6px; color:#000000; letter-spacing:0.36px;">JAPAN &nbsp;&nbsp; NORTH AMERICA &nbsp;&nbsp; EUROPE &nbsp;&nbsp; ASIA / OCEANIA</div>
+    <div class="type-meta">acumin-pro / 12px / 500 / line-height: 1.3 (15.6px) / letter-spacing: 0.36px (0.03em)<span class="type-context">Region Pill</span></div>
+  </div>
+  <div class="type-sample">
+    <div style="font-family:var(--font-base); font-size:11px; font-weight:400; line-height:normal; color:#b7b7b7; letter-spacing:normal;">visvim Official: &nbsp; Instagram &bull; X &bull; Facebook</div>
+    <div class="type-meta">acumin-pro / 11px / 400 / line-height: normal / color #b7b7b7<span class="type-context">Footer Caption</span></div>
+  </div>
+  <div class="type-sample">
+    <div style="font-family:var(--font-jp); font-size:8px; font-weight:500; line-height:normal; color:#707070; letter-spacing:normal;">#SS26 &nbsp; #OLD VISVIM NEVER DIES &nbsp; #シルクに戻す &nbsp; #Product Introspection</div>
+    <div class="type-meta">heisei-kaku-gothic-std / 8px / 500 / color #707070<span class="type-context">Tag Small</span></div>
+  </div>
+</div>
+</section>
+
+<hr class="section-divider">
+
+<!-- LARGE COPY -->
+<section style="background: var(--white);">
+  <div class="feature-copy">
+    <div class="feature-copy-sub">Dissertation</div>
+    <div class="feature-copy-title">WMV VISVIM SANTA FE</div>
+    <div style="margin-top: 32px;">
+      <a class="btn-pill" href="#">Read</a>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- PRODUCTS -->
+<section class="section" id="products">
+  <div class="section-eyebrow">03 / products</div>
+  <h2 class="section-title">Recent Release</h2>
+
+  <div class="product-grid">
+    <a class="product-card" href="#">
+      <div class="product-card-image">SS 26 / 01</div>
+      <div class="product-card-body">
+        <div class="product-card-category">Footwear</div>
+        <h3>FBT (RED DEER)</h3>
+        <p>鹿革を使用したハンドメイドモカシン</p>
+      </div>
+    </a>
+    <a class="product-card" href="#">
+      <div class="product-card-image warm">SS 26 / 02</div>
+      <div class="product-card-body">
+        <div class="product-card-category">Outerwear</div>
+        <h3>IRIS LINER JKT</h3>
+        <p>天然染料で仕上げたライナージャケット</p>
+      </div>
+    </a>
+    <a class="product-card" href="#">
+      <div class="product-card-image cool">SS 26 / 03</div>
+      <div class="product-card-body">
+        <div class="product-card-category">Tops</div>
+        <h3>JUMBO HOODIE P.O.</h3>
+        <p>肉厚なスウェット素材のオーバーサイズフーディ</p>
+      </div>
+    </a>
+    <a class="product-card" href="#">
+      <div class="product-card-image dark">SS 26 / 04</div>
+      <div class="product-card-body">
+        <div class="product-card-category">Accessories</div>
+        <h3>VEGGIE DYE TOTE BAG</h3>
+        <p>草木染めのキャンバストートバッグ</p>
+      </div>
+    </a>
+  </div>
+
+  <div class="pagination-dots">
+    <button class="pagination-dot active"></button>
+    <button class="pagination-dot"></button>
+    <button class="pagination-dot"></button>
+    <button class="pagination-dot"></button>
+    <button class="pagination-dot"></button>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- BUTTONS -->
+<section class="section section-white" style="max-width:none;" id="buttons">
+<div class="section-inner" style="max-width:1100px; margin:0 auto; padding:80px 40px;">
+  <div class="section-eyebrow">04 / buttons</div>
+  <h2 class="section-title">Buttons</h2>
+
+  <h3 style="font-family:var(--font-base); font-size:12px; font-weight:500; margin:0 0 16px; letter-spacing:normal; color:var(--muted-gray); text-transform:uppercase;">Primary CTA (radius 18px)</h3>
+  <div class="button-row">
+    <div class="button-item"><a class="btn-pill" href="#">Read</a><div class="button-label">Read / Look / radius 18px</div></div>
+    <div class="button-item"><a class="btn-pill" href="#">Web Store</a><div class="button-label">Web Store / outline</div></div>
+    <div class="button-item"><a class="btn-pill-dark" href="#">Subscribe</a><div class="button-label">Subscribe / dark / footer</div></div>
+    <div class="button-item"><a class="btn-subseq" href="#">subsequence.tv</a><div class="button-label">Subsequence / #d2e3ea</div></div>
+  </div>
+
+  <h3 style="font-family:var(--font-base); font-size:12px; font-weight:500; margin:32px 0 16px; letter-spacing:normal; color:var(--muted-gray); text-transform:uppercase;">Region Pill (radius 9999px)</h3>
+  <div class="button-row">
+    <div class="button-item"><a class="btn-region" href="#">JAPAN</a><div class="button-label">pill / ls 0.36px</div></div>
+    <div class="button-item"><a class="btn-region" href="#">NORTH AMERICA</a><div class="button-label">pill / ls 0.36px</div></div>
+    <div class="button-item"><a class="btn-region" href="#">EUROPE</a><div class="button-label">pill / ls 0.36px</div></div>
+    <div class="button-item"><a class="btn-region" href="#">ASIA / OCEANIA</a><div class="button-label">pill / ls 0.36px</div></div>
+  </div>
+
+  <h3 style="font-family:var(--font-base); font-size:12px; font-weight:500; margin:32px 0 16px; letter-spacing:normal; color:var(--muted-gray); text-transform:uppercase;">Tag Buttons</h3>
+  <div class="button-row">
+    <div class="button-item"><button class="btn-tag">#SS26</button><div class="button-label">Tag Large / 10px / #fafafa</div></div>
+    <div class="button-item"><button class="btn-tag">#OLD VISVIM NEVER DIES</button><div class="button-label">Tag Large / border #e5e5e5</div></div>
+    <div class="button-item"><button class="btn-tag-small">#シルクに戻す</button><div class="button-label">Tag Small / 8px / JP only</div></div>
+    <div class="button-item"><button class="btn-tag-small">#Product Introspection</button><div class="button-label">Tag Small / no border</div></div>
+  </div>
+
+  <h3 style="font-family:var(--font-base); font-size:12px; font-weight:500; margin:32px 0 16px; letter-spacing:normal; color:var(--muted-gray); text-transform:uppercase;">Pagination</h3>
+  <div class="button-row" style="gap:8px;">
+    <div class="button-item" style="display:flex; gap:8px; align-items:center;">
+      <button class="pagination-dot active"></button>
+      <button class="pagination-dot"></button>
+      <button class="pagination-dot"></button>
+      <button class="pagination-dot"></button>
+      <button class="pagination-dot"></button>
+      <button class="pagination-dot"></button>
+      <button class="pagination-dot"></button>
+    </div>
+    <div class="button-label" style="margin-left:16px;">Active: #000 / Inactive: #e5e5e5 / radius 50%</div>
+  </div>
+
+  <h3 style="font-family:var(--font-base); font-size:12px; font-weight:500; margin:32px 0 16px; letter-spacing:normal; color:var(--muted-gray); text-transform:uppercase;">Navigation</h3>
+  <div class="button-row" style="gap: 40px;">
+    <a href="#" style="font-family:var(--font-base); font-size:11px; font-weight:700; color:#000; text-decoration:none;">About visvim</a>
+    <a href="#" style="font-family:var(--font-base); font-size:11px; font-weight:700; color:#222; text-decoration:none;">Dissertation</a>
+    <a href="#" style="font-family:var(--font-base); font-size:11px; font-weight:700; color:#222; text-decoration:none;">Web Store</a>
+  </div>
+
+  <!-- Drawer Preview -->
+  <div class="drawer-preview">
+    <p class="bold" style="font-size:12px; font-weight:500; margin-bottom:24px;">Drawer / Modal Background: #8b8b8b</p>
+    <p>Topics: Event, Information, Lookbook</p>
+    <p style="margin-top: 16px;">
+      <a href="#" style="font-family:var(--font-base); font-size:12px; font-weight:500; color:white; text-decoration:none; opacity:1;">Lookbook</a>
+      &nbsp;&nbsp;&nbsp;
+      <a href="#" style="font-family:var(--font-base); font-size:12px; font-weight:300; color:white; text-decoration:none; opacity:1;">Event</a>
+      &nbsp;&nbsp;&nbsp;
+      <a href="#" style="font-family:var(--font-base); font-size:12px; font-weight:300; color:white; text-decoration:none; opacity:1;">Information</a>
+    </p>
+    <p style="margin-top:16px; font-size:11px; font-weight:300; color:rgba(255,255,255,0.4);">EN</p>
+  </div>
+</div>
+</section>
+
+<hr class="section-divider">
+
+<!-- FORMS -->
+<section class="section" id="forms">
+  <div class="section-eyebrow">05 / forms</div>
+  <h2 class="section-title">Newsletter</h2>
+  <div class="form-group">
+    <label class="form-label">Search</label>
+    <input class="form-input" type="text" placeholder="Search...">
+    <div class="form-state-label">Default: border-bottom なし / font-size 14px / weight 300</div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Email Address</label>
+    <input class="form-input form-input--focus" type="email" value="reader@example.com">
+    <div class="form-state-label">Focus: border-bottom 1px solid #222222</div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Newsletter</label>
+    <input class="form-input form-input--error" type="email" value="invalid-email">
+    <div class="form-error-text">Error: border-bottom 1px solid #c0392b</div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ELEVATION -->
+<section class="section section-white" style="max-width:none;" id="elevation">
+<div class="section-inner" style="max-width:1100px; margin:0 auto; padding:80px 40px;">
+  <div class="section-eyebrow">06 / elevation</div>
+  <h2 class="section-title">Depth & Elevation</h2>
+  <div class="elevation-grid">
+    <div class="elevation-item" style="background:var(--white); border:1px solid var(--tag-border);">Level 0: flat (default)</div>
+    <div class="elevation-item" style="background:var(--tag-bg); border:1px solid var(--tag-border);">Level 0: tag surface #fafafa</div>
+    <div class="elevation-item" style="background:var(--overlay-gray); color:var(--white); border:none;">Level 1: drawer #8b8b8b</div>
+    <div class="elevation-item" style="background:var(--charcoal); color:var(--white); border:none;">Level 2: footer CTA #222222</div>
+  </div>
+  <p style="font-size:11px; font-weight:300; color:var(--button-gray); margin-top:16px;">visvim は box-shadow を一切使わない。奥行きは背景色の明度差と余白のみで表現する。</p>
+</div>
+</section>
+
+<hr class="section-divider">
+
+<!-- LAYOUT -->
+<section class="section" id="layout">
+  <div class="section-eyebrow">07 / layout</div>
+  <h2 class="section-title">Spacing & Width</h2>
+  <h3 style="font-family:var(--font-base); font-size:12px; font-weight:500; margin:16px 0 12px; letter-spacing:normal; color:var(--muted-gray); text-transform:uppercase;">Spacing Scale</h3>
+  <div class="spacing-row">
+    <div class="spacing-item"><div class="spacing-block" style="width:8px"></div><div class="spacing-value">8px</div></div>
+    <div class="spacing-item"><div class="spacing-block" style="width:12px"></div><div class="spacing-value">12px</div></div>
+    <div class="spacing-item"><div class="spacing-block" style="width:16px"></div><div class="spacing-value">16px</div></div>
+    <div class="spacing-item"><div class="spacing-block" style="width:24px"></div><div class="spacing-value">24px</div></div>
+    <div class="spacing-item"><div class="spacing-block" style="width:32px"></div><div class="spacing-value">32px</div></div>
+    <div class="spacing-item"><div class="spacing-block" style="width:40px"></div><div class="spacing-value">40px</div></div>
+    <div class="spacing-item"><div class="spacing-block" style="width:64px"></div><div class="spacing-value">64px</div></div>
+    <div class="spacing-item"><div class="spacing-block" style="width:120px"></div><div class="spacing-value">120px</div></div>
+  </div>
+
+  <h3 style="font-family:var(--font-base); font-size:12px; font-weight:500; margin:32px 0 12px; letter-spacing:normal; color:var(--muted-gray); text-transform:uppercase;">Content Widths</h3>
+  <div style="margin-bottom:16px"><div class="width-bar-label">Full Bleed Image <span class="width-bar-value">100vw</span></div><div class="width-bar"><div class="width-bar-inner" style="width:100%"></div></div></div>
+  <div style="margin-bottom:16px"><div class="width-bar-label">Content Section <span class="width-bar-value">1100px</span></div><div class="width-bar"><div class="width-bar-inner" style="width:78%"></div></div></div>
+  <div style="margin-bottom:16px"><div class="width-bar-label">Body Text <span class="width-bar-value">600px</span></div><div class="width-bar"><div class="width-bar-inner" style="width:42%"></div></div></div>
+</section>
+
+<footer class="footer">
+  <div style="margin-bottom: 24px;">
+    <a class="btn-pill-dark" href="#" style="display:inline-flex;">Subscribe</a>
+  </div>
+  <p>Generated from <a href="https://www.visvim.tv/" style="opacity:0.8;">visvim.tv</a> DESIGN.md — awesome-design-md-jp / computed style 実測値（2026-05-09）</p>
+  <p class="footer-tiny">&copy; Cubism Inc. — preview replaces Adobe Fonts acumin-pro + heisei-kaku-gothic-std with Inter + Noto Sans JP</p>
+</footer>
+
+</body>
+</html>

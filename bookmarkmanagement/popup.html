@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Bookmark Shelf</title>
     <script src="src/surface.js"></script>
-    <link rel="stylesheet" href="src/styles.css">
+    <link rel="stylesheet" href="src/styles.css?v=visvim-7">
   </head>
-  <body class="launcher-shell">
+  <body class="popup-shell">
     <div id="app" class="app" data-layout="grouped" data-density="cards">
       <header class="topbar">
         <div>
@@ -15,18 +15,18 @@
           <p id="statsText">ブックマークを読み込み中</p>
         </div>
         <div class="top-actions">
-          <button id="openFullButton" class="icon-button hidden" title="大きな画面で開く" aria-label="大きな画面で開く">□</button>
+          <button id="openFullButton" class="icon-button" title="大きな画面で開く" aria-label="大きな画面で開く">□</button>
           <button id="batchModeButton" class="icon-button" type="button" title="一括選択モード" aria-label="一括選択モード">☑</button>
           <button id="trayModeButton" class="icon-button" type="button" title="未整理トレイ" aria-label="未整理トレイ">◇</button>
           <button id="organizeSessionButton" class="icon-button" type="button" title="整理セッション" aria-label="整理セッション">▶</button>
           <button id="domainMoveButton" class="icon-button" type="button" title="ドメイン別まとめ移動" aria-label="ドメイン別まとめ移動">◎</button>
           <button id="undoButton" class="icon-button" type="button" title="操作取り消し" aria-label="操作取り消し" disabled>↶</button>
-          <button id="deleteModeButton" class="icon-button" title="削除モード" aria-label="削除モード" aria-pressed="false">⌫</button>
+          <button id="deleteModeButton" class="icon-button" title="削除モード" aria-label="削除モード" aria-pressed="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3 trash-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg></button>
           <button id="checkLinksButton" class="icon-button" type="button" title="表示中のリンク切れを確認" aria-label="表示中のリンク切れを確認">⛓</button>
           <button id="openBehaviorButton" class="icon-button" title="開き方を切り替え" aria-label="開き方を切り替え">↗</button>
           <button id="settingsButton" class="icon-button" title="設定" aria-label="設定">⚙</button>
           <button id="themeToggleButton" class="icon-button" title="ダークモード切り替え" aria-label="ダークモード切り替え">◐</button>
-          <button id="languageToggleButton" class="icon-button" type="button" title="Englishに切り替え" aria-label="Englishに切り替え">EN</button>
+          <button id="languageToggleButton" class="icon-button" type="button" title="Switch to English" aria-label="Switch to English">EN</button>
           <button id="overlayCloseButton" class="icon-button overlay-only" type="button" title="閉じる" aria-label="閉じる">×</button>
           <button id="refreshButton" class="icon-button" title="再読み込み" aria-label="再読み込み">↻</button>
         </div>
@@ -62,7 +62,7 @@
             </select>
           </label>
           <button id="saveViewButton" class="icon-button" type="button" title="現在のビューを保存" aria-label="現在のビューを保存">＋</button>
-          <button id="deleteViewButton" class="icon-button" type="button" title="保存済みビューを削除" aria-label="保存済みビューを削除" disabled>⌫</button>
+          <button id="deleteViewButton" class="icon-button" type="button" title="保存済みビューを削除" aria-label="保存済みビューを削除" disabled><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3 trash-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg></button>
         </section>
         <section id="batchBar" class="batch-bar hidden" aria-label="一括操作">
           <span id="selectedCountText">0件選択中</span>
@@ -72,7 +72,7 @@
           <button id="batchMoveButton" class="icon-button" type="button" title="選択分をジャンル移動" aria-label="選択分をジャンル移動">⇄</button>
           <button id="batchPinButton" class="icon-button" type="button" title="選択分を固定" aria-label="選択分を固定"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bookmark-star-fill bookmark-star-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill-rule="evenodd" d="M2 15.5V2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13.5a.5.5 0 0 1-.74.439L8 13.069l-5.26 2.87A.5.5 0 0 1 2 15.5M8.16 4.1a.178.178 0 0 0-.32 0l-.634 1.285a.18.18 0 0 1-.134.098l-1.42.206a.178.178 0 0 0-.098.303L6.58 6.993c.042.041.061.1.051.158L6.39 8.565a.178.178 0 0 0 .258.187l1.27-.668a.18.18 0 0 1 .165 0l1.27.668a.178.178 0 0 0 .257-.187L9.368 7.15a.18.18 0 0 1 .05-.158l1.028-1.001a.178.178 0 0 0-.098-.303l-1.42-.206a.18.18 0 0 1-.134-.098z"/></svg></button>
           <button id="batchUnpinButton" class="icon-button" type="button" title="選択分の固定解除" aria-label="選択分の固定解除">☆</button>
-          <button id="batchDeleteButton" class="icon-button" type="button" title="選択分を削除" aria-label="選択分を削除">⌫</button>
+          <button id="batchDeleteButton" class="icon-button" type="button" title="選択分を削除" aria-label="選択分を削除"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3 trash-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg></button>
         </section>
         <aside class="quick-stack">
           <section class="quick-section">
@@ -126,7 +126,7 @@
           <datalist id="categoryOptions"></datalist>
           <label class="check-row"><input id="editPinned" type="checkbox">よく使うものに固定</label>
           <div class="dialog-actions">
-            <button id="deleteButton" class="danger icon-button" value="delete" type="button" title="削除" aria-label="削除">⌫</button>
+            <button id="deleteButton" class="danger icon-button" value="delete" type="button" title="削除" aria-label="削除"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3 trash-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg></button>
             <span></span>
             <button class="icon-button" value="cancel" title="キャンセル" aria-label="キャンセル">×</button>
             <button id="saveButton" class="icon-button" value="save" type="button" title="保存" aria-label="保存">✓</button>
@@ -197,7 +197,7 @@
           <div id="organizeCard" class="organize-card"></div>
           <div id="organizeCategoryList" class="organize-category-list"></div>
           <div class="dialog-actions organize-actions">
-            <button id="organizeDeleteButton" class="danger icon-button" value="delete" type="button" title="削除" aria-label="削除">⌫</button>
+            <button id="organizeDeleteButton" class="danger icon-button" value="delete" type="button" title="削除" aria-label="削除"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3 trash-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg></button>
             <span></span>
             <button id="organizeOpenButton" class="icon-button" type="button" title="開く" aria-label="開く">↗</button>
             <button id="organizeSkipButton" class="icon-button" type="button" title="次へ" aria-label="次へ">›</button>
@@ -217,4 +217,3 @@
     <script src="src/app.js" type="module"></script>
   </body>
 </html>
-

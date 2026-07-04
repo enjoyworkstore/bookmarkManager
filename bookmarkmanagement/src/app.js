@@ -6,6 +6,7 @@ const DEFAULT_CONCRETE_CATEGORY = "未分類";
 const DEFAULT_STATE = {
   categories: {},
   pinned: {},
+  pinnedOrder: [],
   usage: {},
   frequentOrder: [],
   customCategories: [],
@@ -35,10 +36,12 @@ const DEFAULT_STATE = {
   floatingStateRevision: 0,
   savedViews: [],
   overlayOpacity: 86,
-  openBehavior: "new-tab-close"
+  openBehavior: "new-tab-close",
+  preserveSelectedCategoryOnce: false
 };
 
 const BOOKMARK_STAR_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bookmark-star-fill bookmark-star-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill-rule="evenodd" d="M2 15.5V2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13.5a.5.5 0 0 1-.74.439L8 13.069l-5.26 2.87A.5.5 0 0 1 2 15.5M8.16 4.1a.178.178 0 0 0-.32 0l-.634 1.285a.18.18 0 0 1-.134.098l-1.42.206a.178.178 0 0 0-.098.303L6.58 6.993c.042.041.061.1.051.158L6.39 8.565a.178.178 0 0 0 .258.187l1.27-.668a.18.18 0 0 1 .165 0l1.27.668a.178.178 0 0 0 .257-.187L9.368 7.15a.18.18 0 0 1 .05-.158l1.028-1.001a.178.178 0 0 0-.098-.303l-1.42-.206a.18.18 0 0 1-.134-.098z"/></svg>`;
+const TRASH_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3 trash-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg>`;
 const OPEN_BEHAVIOR_ORDER = ["new-tab-close", "same-tab-keep", "same-tab-close"];
 const OPEN_BEHAVIOR_META = {
   "new-tab-close": { icon: "↗", labelKey: "behaviorNewTabClose" },
@@ -259,6 +262,7 @@ const UI_TEXT = {
     showMore: ({ count, remaining }) => `さらに${count}件表示（残り${remaining}件）`,
     select: "選択",
     pin: "固定",
+    unpin: "固定解除",
     edit: "編集",
     categoryMoveUndo: "ジャンル移動を取り消す",
     deleteUndo: "削除を取り消す",
@@ -394,6 +398,7 @@ const UI_TEXT = {
     showMore: ({ count, remaining }) => `Show ${count} more (${remaining} left)`,
     select: "Select",
     pin: "Pin",
+    unpin: "Unpin",
     edit: "Edit",
     categoryMoveUndo: "Undo genre move",
     deleteUndo: "Undo delete",
@@ -579,6 +584,39 @@ function setBookmarkStarIcon(element) {
   element.dataset.icon = "bookmark-star";
 }
 
+function setTrashIcon(element) {
+  if (!element || element.dataset.icon === "trash") return;
+  element.innerHTML = TRASH_ICON;
+  element.dataset.icon = "trash";
+}
+
+function setDragUi(type = "") {
+  if (!elements.app) return;
+  if (type) {
+    elements.app.dataset.draggingType = type;
+  } else {
+    delete elements.app.dataset.draggingType;
+  }
+}
+
+function setDropTarget(element, active) {
+  if (!element) return;
+  if (active) {
+    element.dataset.dropTarget = "true";
+  } else {
+    delete element.dataset.dropTarget;
+  }
+}
+
+function clearDropTargets() {
+  document.querySelectorAll("[data-drop-target]").forEach((element) => delete element.dataset.dropTarget);
+}
+
+function endDragUi() {
+  setDragUi("");
+  clearDropTargets();
+}
+
 function setLabelText(input, text) {
   const label = input?.closest("label");
   const textNode = [...(label?.childNodes || [])].find((node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
@@ -735,6 +773,10 @@ async function init() {
   bindEvents();
   bindStorageSync();
   await loadBookmarks();
+  if (reconcilePinnedOrder()) {
+    markUsageStateDirty();
+    stateNeedsPersistAfterLoad = true;
+  }
   if (normalizeConcreteSelectedCategory({ replaceAll: true, persist: false })) {
     stateNeedsPersistAfterLoad = true;
   }
@@ -748,6 +790,8 @@ async function init() {
 }
 
 function bindEvents() {
+  document.addEventListener("dragend", endDragUi, true);
+  document.addEventListener("drop", endDragUi, true);
   elements.refreshButton.addEventListener("click", async () => {
     await loadBookmarks();
     normalizeConcreteSelectedCategory({ replaceAll: true });
@@ -1029,6 +1073,8 @@ async function loadState() {
   const result = await chrome.storage.local.get(STORAGE_KEY);
   const storedState = result[STORAGE_KEY] || {};
   state = { ...structuredClone(DEFAULT_STATE), ...storedState };
+  state.pinned = state.pinned && typeof state.pinned === "object" ? state.pinned : {};
+  state.usage = state.usage && typeof state.usage === "object" ? state.usage : {};
   if (!OPEN_BEHAVIOR_META[state.openBehavior]) {
     state.openBehavior = DEFAULT_STATE.openBehavior;
   }
@@ -1057,13 +1103,19 @@ async function loadState() {
   state.floatingStateRevision = Number(state.floatingStateRevision) || 0;
   state.savedViews = normalizeSavedViews(state.savedViews);
   state.frequentOrder = normalizeIdList(state.frequentOrder);
+  state.pinnedOrder = normalizeIdList(state.pinnedOrder);
   state.overlayOpacity = clampNumber(state.overlayOpacity, 45, 98, DEFAULT_STATE.overlayOpacity);
   state.requireCategorySelection = state.requireCategorySelection !== false;
+  const preserveSelectedCategoryOnce = state.preserveSelectedCategoryOnce === true && state.openBehavior === "same-tab-keep";
+  state.preserveSelectedCategoryOnce = false;
+  if (preserveSelectedCategoryOnce) {
+    stateNeedsPersistAfterLoad = true;
+  }
   delete state.cardColorEnabled;
   delete state.cardColor;
   state.hiddenCategories = [...new Set(state.hiddenCategories || [])];
   state.categoryOrder = [...new Set(state.categoryOrder || [])].filter((name) => !isHiddenCategory(name));
-  if (state.requireCategorySelection && state.selectedCategory !== "all") {
+  if (state.requireCategorySelection && state.selectedCategory !== "all" && !preserveSelectedCategoryOnce) {
     state.selectedCategory = "all";
     stateNeedsPersistAfterLoad = true;
   } else if (!state.selectedCategory || isHiddenCategory(state.selectedCategory)) {
@@ -1133,6 +1185,7 @@ function preserveExternalUsageState(targetState, latestState, dirty) {
   if (dirty || !latestState || typeof latestState !== "object") return;
   if ("usage" in latestState) targetState.usage = latestState.usage;
   if ("pinned" in latestState) targetState.pinned = latestState.pinned;
+  if ("pinnedOrder" in latestState) targetState.pinnedOrder = normalizeIdList(latestState.pinnedOrder);
   if ("frequentOrder" in latestState) targetState.frequentOrder = normalizeIdList(latestState.frequentOrder);
 }
 
@@ -1146,6 +1199,7 @@ function categoryStateChanged(previousState, nextState) {
 function usageStateChanged(previousState, nextState) {
   return previousState.usage !== nextState.usage
     || previousState.pinned !== nextState.pinned
+    || previousState.pinnedOrder !== nextState.pinnedOrder
     || previousState.frequentOrder !== nextState.frequentOrder;
 }
 
@@ -1216,6 +1270,7 @@ function pickUsageState(sourceState) {
   return {
     usage: sourceState.usage && typeof sourceState.usage === "object" ? sourceState.usage : {},
     pinned: sourceState.pinned && typeof sourceState.pinned === "object" ? sourceState.pinned : {},
+    pinnedOrder: normalizeIdList(sourceState.pinnedOrder),
     frequentOrder: normalizeIdList(sourceState.frequentOrder)
   };
 }
@@ -1231,6 +1286,37 @@ async function loadBookmarks() {
     };
   });
   resetBookmarkDerivedCaches();
+}
+
+function reconcilePinnedOrder() {
+  const pinnedIds = new Set(Object.keys(state.pinned || {}).filter((id) => state.pinned[id]));
+  const savedIds = normalizeIdList(state.pinnedOrder).filter((id) => pinnedIds.has(id));
+  const savedSet = new Set(savedIds);
+  const registrationIds = bookmarks
+    .filter((bookmark) => pinnedIds.has(bookmark.id) && !savedSet.has(bookmark.id))
+    .sort(sortBookmarksByAdded)
+    .map((bookmark) => bookmark.id);
+  const nextOrder = [...savedIds, ...registrationIds];
+  if (nextOrder.length === state.pinnedOrder.length && nextOrder.every((id, index) => id === state.pinnedOrder[index])) {
+    return false;
+  }
+  state.pinnedOrder = nextOrder;
+  return true;
+}
+
+function setBookmarkPinnedState(id, pinned) {
+  const bookmarkId = String(id || "").trim();
+  if (!bookmarkId) return;
+  const nextOrder = normalizeIdList(state.pinnedOrder);
+  if (pinned) {
+    state.pinned[bookmarkId] = true;
+    if (!nextOrder.includes(bookmarkId)) nextOrder.push(bookmarkId);
+  } else {
+    delete state.pinned[bookmarkId];
+    const orderIndex = nextOrder.indexOf(bookmarkId);
+    if (orderIndex >= 0) nextOrder.splice(orderIndex, 1);
+  }
+  state.pinnedOrder = nextOrder;
 }
 
 function resetBookmarkDerivedCaches() {
@@ -1571,18 +1657,28 @@ function getFrequentOrderMap() {
   return new Map(normalizeIdList(state.frequentOrder).map((id, index) => [id, index]));
 }
 
+function getPinnedOrderMap() {
+  return new Map(normalizeIdList(state.pinnedOrder).map((id, index) => [id, index]));
+}
+
 function compareFrequentManualOrder(a, b, orderMap) {
   const aRank = orderMap.has(a.id) ? orderMap.get(a.id) : Number.POSITIVE_INFINITY;
   const bRank = orderMap.has(b.id) ? orderMap.get(b.id) : Number.POSITIVE_INFINITY;
   return aRank - bRank;
 }
 
-function sortFrequentBookmarks(a, b, orderMap = getFrequentOrderMap()) {
+function sortFrequentBookmarks(a, b, orderMap = getFrequentOrderMap(), pinnedOrderMap = getPinnedOrderMap()) {
+  const aPinned = !!state.pinned[a.id];
+  const bPinned = !!state.pinned[b.id];
+  const pinnedDelta = Number(bPinned) - Number(aPinned);
+  if (pinnedDelta) return pinnedDelta;
+  if (aPinned && bPinned) {
+    const pinnedOrderDelta = compareFrequentManualOrder(a, b, pinnedOrderMap);
+    return pinnedOrderDelta || sortBookmarksByAdded(a, b);
+  }
   const manualDelta = compareFrequentManualOrder(a, b, orderMap);
   if (manualDelta) return manualDelta;
   if (!state.quickFull) return sortBookmarksByUsage(a, b);
-  const pinnedDelta = Number(!!state.pinned[b.id]) - Number(!!state.pinned[a.id]);
-  if (pinnedDelta) return pinnedDelta;
   return compareFolderAndIndex(a, b) || compareBookmarkTitle(a, b);
 }
 
@@ -1639,10 +1735,11 @@ function collectCategories(categoryNames = getCategoryNames()) {
 
 function getFrequentBookmarks() {
   const limit = state.quickFull ? 48 : state.recentCollapsed || state.panelRatio === "frequent" ? 24 : 16;
-  const orderSignature = normalizeIdList(state.frequentOrder).join("\u0001");
+  const orderSignature = `${normalizeIdList(state.pinnedOrder).join("\u0001")}::${normalizeIdList(state.frequentOrder).join("\u0001")}`;
   const cacheKey = ["frequent", bookmarksRevision, usageRevision, state.quickFull, state.recentCollapsed, state.panelRatio, limit, orderSignature].join("::");
   return getCachedRenderData(cacheKey, () => {
     const orderMap = getFrequentOrderMap();
+    const pinnedOrderMap = getPinnedOrderMap();
     const bookmarkMap = getBookmarkMap();
     const candidateIds = new Set([
       ...Object.keys(state.pinned || {}).filter((id) => state.pinned[id]),
@@ -1651,16 +1748,16 @@ function getFrequentBookmarks() {
     return [...candidateIds]
       .map((id) => bookmarkMap.get(id))
       .filter(Boolean)
-      .sort((a, b) => sortFrequentBookmarks(a, b, orderMap))
+      .sort((a, b) => sortFrequentBookmarks(a, b, orderMap, pinnedOrderMap))
       .slice(0, limit);
   });
 }
 
 function getPinnedBookmarks(limit = DEFERRED_PINNED_LIMIT) {
-  const orderSignature = normalizeIdList(state.frequentOrder).join("\u0001");
+  const orderSignature = normalizeIdList(state.pinnedOrder).join("\u0001");
   const cacheKey = ["pinned", bookmarksRevision, usageRevision, limit, orderSignature].join("::");
   return getCachedRenderData(cacheKey, () => {
-    const orderMap = getFrequentOrderMap();
+    const orderMap = getPinnedOrderMap();
     const bookmarkMap = getBookmarkMap();
     return Object.keys(state.pinned || {})
       .filter((id) => state.pinned[id])
@@ -1668,7 +1765,7 @@ function getPinnedBookmarks(limit = DEFERRED_PINNED_LIMIT) {
       .filter(Boolean)
       .sort((a, b) => {
         const manualDelta = compareFrequentManualOrder(a, b, orderMap);
-        return manualDelta || compareFolderAndIndex(a, b) || compareBookmarkTitle(a, b);
+        return manualDelta || sortBookmarksByAdded(a, b);
       })
       .slice(0, limit);
   });
@@ -1726,8 +1823,26 @@ function clearFrequentDragIndicators() {
 
 async function reorderFrequentBookmarks(sourceId, targetId, position = "before") {
   if (!sourceId || !targetId || sourceId === targetId) return;
+  const sourcePinned = !!state.pinned[sourceId];
+  const targetPinned = !!state.pinned[targetId];
+  if (sourcePinned !== targetPinned) return;
   const frequentIds = getFrequentBookmarks().map((bookmark) => bookmark.id);
   if (!frequentIds.includes(sourceId) || !frequentIds.includes(targetId)) return;
+
+  if (sourcePinned) {
+    const pinnedIds = frequentIds.filter((id) => state.pinned[id]);
+    const nextPinnedIds = pinnedIds.filter((id) => id !== sourceId);
+    const pinnedTargetIndex = nextPinnedIds.indexOf(targetId);
+    if (pinnedTargetIndex < 0) return;
+    nextPinnedIds.splice(pinnedTargetIndex + (position === "after" ? 1 : 0), 0, sourceId);
+    const carryOverPinnedIds = normalizeIdList(state.pinnedOrder)
+      .filter((id) => state.pinned[id] && !nextPinnedIds.includes(id));
+    state.pinnedOrder = [...nextPinnedIds, ...carryOverPinnedIds];
+    markUsageStateDirty();
+    await saveState();
+    render({ preserveScroll: true });
+    return;
+  }
 
   const nextIds = frequentIds.filter((id) => id !== sourceId);
   const targetIndex = nextIds.indexOf(targetId);
@@ -1889,15 +2004,25 @@ function createGenreButton(value, label, count) {
   button.addEventListener("dragstart", () => {
     if (value === "all") return;
     dragCategoryName = value;
+    setDragUi("genre");
     button.classList.add("dragging");
   });
   button.addEventListener("dragend", () => {
     dragCategoryName = null;
+    endDragUi();
     button.classList.remove("dragging");
   });
-  button.addEventListener("dragover", (event) => event.preventDefault());
+  button.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    setDropTarget(button, true);
+  });
+  button.addEventListener("dragleave", (event) => {
+    if (!button.contains(event.relatedTarget)) setDropTarget(button, false);
+  });
   button.addEventListener("drop", async (event) => {
     event.preventDefault();
+    setDropTarget(button, false);
     if (dragCategoryName && value !== "all") {
       await reorderCategory(dragCategoryName, value);
       return;
@@ -2174,14 +2299,11 @@ async function pinSelectedBookmarks(pinned) {
   setUndo({
     type: "pin",
     label: pinned ? t("pinUndo") : t("unpinUndo"),
+    pinnedOrder: normalizeIdList(state.pinnedOrder),
     previous: ids.map((id) => ({ id, pinned: !!state.pinned[id] }))
   });
   ids.forEach((id) => {
-    if (pinned) {
-      state.pinned[id] = true;
-    } else {
-      delete state.pinned[id];
-    }
+    setBookmarkPinnedState(id, pinned);
   });
   markUsageStateDirty();
   await saveState();
@@ -2271,9 +2393,17 @@ function renderSections(items, categories, categoryNames) {
   if (!trayMode && state.selectedCategory !== "all") {
     const sectionKey = getSectionKey("category", state.selectedCategory);
     const section = createSection(state.selectedCategory, items.length, getVisibleLimit(sectionKey, items.length));
-    section.addEventListener("dragover", (event) => event.preventDefault());
+    section.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      if (dragBookmarkId) setDropTarget(section, true);
+    });
+    section.addEventListener("dragleave", (event) => {
+      if (!section.contains(event.relatedTarget)) setDropTarget(section, false);
+    });
     section.addEventListener("drop", async (event) => {
       event.preventDefault();
+      setDropTarget(section, false);
       if (dragBookmarkId) await moveBookmarkToCategory(dragBookmarkId, state.selectedCategory);
     });
     elements.bookmarkSections.append(section);
@@ -2287,9 +2417,17 @@ function renderSections(items, categories, categoryNames) {
     if (!categoryItems.length) return;
     const sectionKey = getSectionKey("category", category.name);
     const section = createSection(category.name, categoryItems.length, getVisibleLimit(sectionKey, categoryItems.length));
-    section.addEventListener("dragover", (event) => event.preventDefault());
+    section.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      if (dragBookmarkId) setDropTarget(section, true);
+    });
+    section.addEventListener("dragleave", (event) => {
+      if (!section.contains(event.relatedTarget)) setDropTarget(section, false);
+    });
     section.addEventListener("drop", async (event) => {
       event.preventDefault();
+      setDropTarget(section, false);
       if (dragBookmarkId) await moveBookmarkToCategory(dragBookmarkId, category.name);
     });
     elements.bookmarkSections.append(section);
@@ -2417,25 +2555,38 @@ function createLightweightBookmarkCard(bookmark) {
   const linkStatus = linkStatuses.get(bookmark.id);
   if (linkStatus) card.dataset.linkStatus = linkStatus.status;
   const host = safeHost(bookmark.url);
+  const pinned = !!state.pinned[bookmark.id];
   card.innerHTML = `
     <button class="preview" type="button" title="開く" aria-label="開く"><img class="favicon" alt="" loading="lazy"></button>
     <div class="bookmark-body">
       <button class="bookmark-title" type="button"></button>
       <div class="bookmark-meta"></div>
     </div>
+    <button class="icon-button pin-button quick-pin-button" type="button"></button>
     <span class="tag category-tag"></span>`;
   queueLazyFavicon(card.querySelector(".favicon"), bookmark.url);
   card.querySelector(".bookmark-title").textContent = bookmark.title;
   card.querySelector(".bookmark-title").title = bookmark.title;
   card.querySelector(".bookmark-meta").textContent = host || bookmark.url;
   card.querySelector(".category-tag").textContent = displayCategoryName(bookmark.category);
+  const pinButton = card.querySelector(".pin-button");
+  pinButton.textContent = pinned ? "★" : "☆";
+  pinButton.dataset.active = pinned ? "true" : "false";
+  pinButton.setAttribute("aria-pressed", pinned ? "true" : "false");
+  setControlLabel(pinButton, pinned ? t("unpin") : t("pin"));
   setControlLabel(card.querySelector(".preview"), t("open"));
-  card.addEventListener("dragstart", () => {
+  card.addEventListener("dragstart", (event) => {
     dragBookmarkId = bookmark.id;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", bookmark.id);
+    }
+    setDragUi("bookmark");
     card.classList.add("dragging");
   });
   card.addEventListener("dragend", () => {
     dragBookmarkId = null;
+    endDragUi();
     card.classList.remove("dragging");
   });
   card.addEventListener("click", (event) => {
@@ -2445,6 +2596,7 @@ function createLightweightBookmarkCard(bookmark) {
   card.addEventListener("contextmenu", (event) => handleBookmarkContextOpen(event, bookmark));
   card.querySelector(".preview").addEventListener("click", () => handlePrimaryBookmarkAction(bookmark));
   card.querySelector(".bookmark-title").addEventListener("click", () => handlePrimaryBookmarkAction(bookmark));
+  pinButton.addEventListener("click", () => toggleBookmarkPinned(bookmark));
   return card;
 }
 
@@ -2470,10 +2622,10 @@ function createBookmarkCard(bookmark, options = {}) {
     </div>
     <div class="card-actions">
       <button class="icon-button select-card-button" type="button" title="選択" aria-label="選択">□</button>
-      <button class="icon-button pin-button" type="button" title="固定" aria-label="固定">${BOOKMARK_STAR_ICON}</button>
+      <button class="icon-button pin-button" type="button"></button>
       <button class="icon-button edit-card-button" type="button" title="編集" aria-label="編集">✎</button>
       <button class="icon-button open-card-button" type="button" title="開く" aria-label="開く">↗</button>
-      <button class="icon-button delete-card-button" type="button" title="削除" aria-label="削除">⌫</button>
+      <button class="icon-button delete-card-button" type="button" title="削除" aria-label="削除">${TRASH_ICON}</button>
     </div>`;
   queueLazyFavicon(card.querySelector(".favicon"), bookmark.url);
   card.querySelector(".preview-domain").textContent = host;
@@ -2490,10 +2642,13 @@ function createBookmarkCard(bookmark, options = {}) {
     statusTag.remove();
   }
   card.querySelector(".select-card-button").textContent = selectedIds.has(bookmark.id) ? "☑" : "□";
-  card.querySelector(".pin-button").dataset.active = pinned ? "true" : "false";
+  const pinButton = card.querySelector(".pin-button");
+  pinButton.textContent = pinned ? "★" : "☆";
+  pinButton.dataset.active = pinned ? "true" : "false";
+  pinButton.setAttribute("aria-pressed", pinned ? "true" : "false");
   setControlLabel(card.querySelector(".preview"), t("open"));
   setControlLabel(card.querySelector(".select-card-button"), t("select"));
-  setControlLabel(card.querySelector(".pin-button"), t("pin"));
+  setControlLabel(pinButton, pinned ? t("unpin") : t("pin"));
   setControlLabel(card.querySelector(".edit-card-button"), t("edit"));
   setControlLabel(card.querySelector(".open-card-button"), t("open"));
   setControlLabel(card.querySelector(".delete-card-button"), t("delete"));
@@ -2506,18 +2661,25 @@ function createBookmarkCard(bookmark, options = {}) {
       card.querySelector(".bookmark-tags").append(tag);
     });
   }
-  card.addEventListener("dragstart", () => {
+  card.addEventListener("dragstart", (event) => {
     dragBookmarkId = bookmark.id;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", bookmark.id);
+    }
+    setDragUi("bookmark");
     card.classList.add("dragging");
   });
   card.addEventListener("dragend", () => {
     dragBookmarkId = null;
+    endDragUi();
     clearFrequentDragIndicators();
     card.classList.remove("dragging");
   });
   if (options.frequent) {
     card.addEventListener("dragover", (event) => {
       if (!dragBookmarkId || dragBookmarkId === bookmark.id) return;
+      if (!!state.pinned[dragBookmarkId] !== pinned) return;
       event.preventDefault();
       event.stopPropagation();
       const position = getFrequentDropPosition(event, card);
@@ -2554,15 +2716,25 @@ function createBookmarkCard(bookmark, options = {}) {
   card.querySelector(".open-card-button").addEventListener("click", () => openBookmark(bookmark));
   card.querySelector(".delete-card-button").addEventListener("click", () => deleteBookmark(bookmark.id, bookmark.title, { skipConfirm: true }));
   card.querySelector(".edit-card-button").addEventListener("click", () => openEditDialog(bookmark));
-  card.querySelector(".pin-button").addEventListener("click", async () => {
-    state.pinned[bookmark.id] = !state.pinned[bookmark.id];
-    if (!state.pinned[bookmark.id]) delete state.pinned[bookmark.id];
-    markUsageStateDirty();
-    await saveState();
-    render();
-  });
+  pinButton.addEventListener("click", () => toggleBookmarkPinned(bookmark));
   card.querySelector(".category-select").addEventListener("change", (event) => moveBookmarkToCategory(bookmark.id, event.target.value));
   return card;
+}
+
+async function toggleBookmarkPinned(bookmark) {
+  const id = String(bookmark?.id || "");
+  if (!id) return;
+  const wasPinned = !!state.pinned[id];
+  setUndo({
+    type: "pin",
+    label: wasPinned ? t("unpinUndo") : t("pinUndo"),
+    pinnedOrder: normalizeIdList(state.pinnedOrder),
+    previous: [{ id, pinned: wasPinned }]
+  });
+  setBookmarkPinnedState(id, !wasPinned);
+  markUsageStateDirty();
+  await saveState();
+  render();
 }
 
 function isInteractiveCardTarget(target) {
@@ -2591,18 +2763,26 @@ async function handlePrimaryBookmarkAction(bookmark) {
 }
 
 async function openBookmark(bookmark) {
-  await recordBookmarkOpen(bookmark);
   const currentWindow = await chrome.windows.getCurrent();
   const targetWindow = await getBookmarkTargetWindow(currentWindow);
+
+  if (SURFACE === "overlay" && state.openBehavior === "same-tab-keep") {
+    state.preserveSelectedCategoryOnce = true;
+    await recordBookmarkOpen(bookmark);
+    const openedNewTab = await openBookmarkInCurrentTabKeepingOverlay(bookmark.url, targetWindow);
+    if (openedNewTab) {
+      state.preserveSelectedCategoryOnce = false;
+      await saveState();
+      await closeBookmarkShelf(currentWindow, targetWindow);
+    }
+    return;
+  }
+
+  await recordBookmarkOpen(bookmark);
 
   if (state.openBehavior === "new-tab-close") {
     await openBookmarkInNewTab(bookmark.url, targetWindow);
     await closeBookmarkShelf(currentWindow, targetWindow);
-    return;
-  }
-
-  if (SURFACE === "overlay" && state.openBehavior === "same-tab-keep") {
-    await openBookmarkInCurrentTabKeepingOverlay(bookmark.url, targetWindow);
     return;
   }
 
@@ -2617,6 +2797,7 @@ async function openBookmarkInNewTabOnly(bookmark) {
   const currentWindow = await chrome.windows.getCurrent();
   const targetWindow = await getBookmarkTargetWindow(currentWindow);
   await openBookmarkInNewTab(bookmark.url, targetWindow);
+  await closeBookmarkShelf(currentWindow, targetWindow);
 }
 
 async function recordBookmarkOpen(bookmark) {
@@ -2666,13 +2847,13 @@ async function openBookmarkInCurrentTab(url, targetWindow) {
 async function openBookmarkInCurrentTabKeepingOverlay(url, targetWindow) {
   if (!targetWindow?.id || targetWindow.type === "popup") {
     await openBookmarkInNewTab(url, targetWindow);
-    return;
+    return true;
   }
 
   const [activeTab] = await chrome.tabs.query({ active: true, windowId: targetWindow.id });
   if (!activeTab?.id) {
     await openBookmarkInNewTab(url, targetWindow);
-    return;
+    return true;
   }
 
   const response = await chrome.runtime.sendMessage({
@@ -2685,6 +2866,7 @@ async function openBookmarkInCurrentTabKeepingOverlay(url, targetWindow) {
   if (!response?.ok) {
     await openBookmarkInCurrentTab(url, targetWindow);
   }
+  return false;
 }
 
 async function closeBookmarkShelf(currentWindow, targetWindow) {
@@ -2721,8 +2903,7 @@ async function saveEdit() {
   ensureCustomCategory(category);
   state.categories[id] = category;
   markCategoryStateDirty("categories");
-  state.pinned[id] = elements.editPinned.checked;
-  if (!state.pinned[id]) delete state.pinned[id];
+  setBookmarkPinnedState(id, elements.editPinned.checked);
   markUsageStateDirty();
   await saveState();
   elements.editDialog.close();
@@ -2780,7 +2961,7 @@ async function deleteBookmarksByIds(ids, options = {}) {
   for (const bookmark of targets) {
     await chrome.bookmarks.remove(bookmark.id).catch(() => {});
     delete state.categories[bookmark.id];
-    delete state.pinned[bookmark.id];
+    setBookmarkPinnedState(bookmark.id, false);
     delete state.usage[bookmark.id];
     selectedIds.delete(bookmark.id);
   }
@@ -2803,6 +2984,7 @@ function snapshotBookmark(bookmark) {
     index: bookmark.index,
     category: bookmark.category,
     pinned: !!state.pinned[bookmark.id],
+    pinnedOrderIndex: normalizeIdList(state.pinnedOrder).indexOf(bookmark.id),
     usage: state.usage[bookmark.id] || null
   };
 }
@@ -2833,6 +3015,9 @@ async function undoLastAction() {
         delete state.pinned[item.id];
       }
     });
+    state.pinnedOrder = entry.pinnedOrder
+      ? normalizeIdList(entry.pinnedOrder)
+      : normalizeIdList(state.pinnedOrder).filter((id) => state.pinned[id]);
     markUsageStateDirty();
   }
 
@@ -2841,7 +3026,14 @@ async function undoLastAction() {
       const created = await restoreDeletedBookmark(snapshot);
       if (!created?.id) continue;
       if (snapshot.category) state.categories[created.id] = snapshot.category;
-      if (snapshot.pinned) state.pinned[created.id] = true;
+      if (snapshot.pinned) {
+        setBookmarkPinnedState(created.id, true);
+        if (snapshot.pinnedOrderIndex >= 0) {
+          const nextOrder = normalizeIdList(state.pinnedOrder).filter((id) => id !== created.id);
+          nextOrder.splice(Math.min(snapshot.pinnedOrderIndex, nextOrder.length), 0, created.id);
+          state.pinnedOrder = nextOrder;
+        }
+      }
       if (snapshot.usage) state.usage[created.id] = snapshot.usage;
     }
     markCategoryStateDirty("categories");
@@ -2925,7 +3117,7 @@ function renderDomainDialog() {
     });
     row.querySelector(".move-domain").addEventListener("click", async () => {
       await moveBookmarksToCategory(items.map((bookmark) => bookmark.id), row.querySelector("select").value);
-      elements.domainDialog.close();
+      renderDomainDialog();
     });
     elements.domainGroupList.append(row);
   });
@@ -3107,7 +3299,7 @@ function renderGenreEditorList() {
   getCategoryNames().forEach((name) => {
     const row = document.createElement("div");
     row.className = "genre-editor-row";
-    row.innerHTML = `<input type="text"><span class="genre-count"></span><button class="icon-button rename-genre" type="button">✓</button><button class="icon-button delete-genre" type="button">⌫</button>`;
+    row.innerHTML = `<input type="text"><span class="genre-count"></span><button class="icon-button rename-genre" type="button">✓</button><button class="icon-button delete-genre" type="button">${TRASH_ICON}</button>`;
     row.querySelector("input").value = name;
     row.querySelector(".genre-count").textContent = counts.get(name) || 0;
     setControlLabel(row.querySelector(".rename-genre"), t("save"));
@@ -3185,6 +3377,13 @@ function updateButtons() {
   elements.groupedViewButton.textContent = "▤";
   setBookmarkStarIcon(elements.listViewButton);
   setBookmarkStarIcon(elements.batchPinButton);
+  [
+    elements.deleteModeButton,
+    elements.deleteViewButton,
+    elements.batchDeleteButton,
+    elements.deleteButton,
+    elements.organizeDeleteButton
+  ].forEach(setTrashIcon);
   setControlLabel(elements.openFullButton, t("openFull"));
   setControlLabel(elements.batchModeButton, t("batchMode"));
   setControlLabel(elements.trayModeButton, t("trayMode"));
