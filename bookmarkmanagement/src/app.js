@@ -227,7 +227,7 @@ const UI_TEXT = {
     floatingButtonShape: "フローティングボタン形状",
     floatingButtonColor: "起動バー色",
     floatingButtonSize: "フローティングボタンサイズ",
-    overlayOpacity: "背景・カード透明度",
+    overlayOpacity: "パネル・カード・入力欄の不透明度",
     organizeHeading: "整理セッション",
     open: "開く",
     next: "次へ",
@@ -363,7 +363,7 @@ const UI_TEXT = {
     floatingButtonShape: "Floating button shape",
     floatingButtonColor: "Launcher bar color",
     floatingButtonSize: "Floating button size",
-    overlayOpacity: "Background and card opacity",
+    overlayOpacity: "Panel, card, and control opacity",
     organizeHeading: "Organize session",
     open: "Open",
     next: "Next",
@@ -495,6 +495,7 @@ const elements = {
   floatingButtonColor: document.querySelector("#floatingButtonColor"),
   floatingButtonSize: document.querySelector("#floatingButtonSize"),
   overlayOpacityInput: document.querySelector("#overlayOpacityInput"),
+  overlayOpacityValue: document.querySelector("#overlayOpacityValue"),
   requireCategorySelection: document.querySelector("#requireCategorySelection"),
   categoryOptions: document.querySelector("#categoryOptions"),
   saveButton: document.querySelector("#saveButton"),
@@ -917,7 +918,8 @@ function bindEvents() {
     scheduleSaveState(120);
   });
   elements.overlayOpacityInput?.addEventListener("input", async () => {
-    state.overlayOpacity = clampNumber(elements.overlayOpacityInput.value, 45, 98, DEFAULT_STATE.overlayOpacity);
+    state.overlayOpacity = clampNumber(elements.overlayOpacityInput.value, 30, 100, DEFAULT_STATE.overlayOpacity);
+    if (elements.overlayOpacityValue) elements.overlayOpacityValue.textContent = `${Math.round(state.overlayOpacity)}%`;
     applyVisualSettings();
     scheduleSaveState();
   });
@@ -1104,7 +1106,7 @@ async function loadState() {
   state.savedViews = normalizeSavedViews(state.savedViews);
   state.frequentOrder = normalizeIdList(state.frequentOrder);
   state.pinnedOrder = normalizeIdList(state.pinnedOrder);
-  state.overlayOpacity = clampNumber(state.overlayOpacity, 45, 98, DEFAULT_STATE.overlayOpacity);
+  state.overlayOpacity = clampNumber(state.overlayOpacity, 30, 100, DEFAULT_STATE.overlayOpacity);
   state.requireCategorySelection = state.requireCategorySelection !== false;
   const preserveSelectedCategoryOnce = state.preserveSelectedCategoryOnce === true && state.openBehavior === "same-tab-keep";
   state.preserveSelectedCategoryOnce = false;
@@ -1529,6 +1531,9 @@ function render(options = {}) {
   if (elements.overlayOpacityInput) {
     elements.overlayOpacityInput.value = String(state.overlayOpacity);
   }
+  if (elements.overlayOpacityValue) {
+    elements.overlayOpacityValue.textContent = `${Math.round(state.overlayOpacity)}%`;
+  }
   if (elements.requireCategorySelection) {
     elements.requireCategorySelection.checked = requiresCategorySelection();
   }
@@ -1570,13 +1575,15 @@ function render(options = {}) {
 
 function applyVisualSettings() {
   const isDark = state.theme === "dark";
-  const overlayAlpha = clampNumber(state.overlayOpacity, 45, 98, DEFAULT_STATE.overlayOpacity) / 100;
-  const baseLayerAlpha = isDark ? Math.max(0.06, Math.min(0.42, overlayAlpha - 0.5)) : overlayAlpha;
+  const overlayAlpha = clampNumber(state.overlayOpacity, 30, 100, DEFAULT_STATE.overlayOpacity) / 100;
+  const baseLayerAlpha = Math.max(0.14, Math.min(0.62, overlayAlpha * 0.58));
   const panelAlpha = overlayAlpha;
-  const strongAlpha = Math.min(0.98, overlayAlpha + 0.08);
-  const softAlpha = Math.min(0.98, overlayAlpha + 0.02);
-  const cardAlpha = Math.min(0.99, overlayAlpha + 0.03);
-  const cardHoverAlpha = Math.min(0.99, overlayAlpha + 0.08);
+  const strongAlpha = Math.min(1, overlayAlpha + 0.07);
+  const softAlpha = Math.min(1, overlayAlpha + 0.02);
+  const cardAlpha = overlayAlpha;
+  const cardHoverAlpha = Math.min(1, overlayAlpha + 0.09);
+  const controlAlpha = Math.min(1, overlayAlpha + 0.05);
+  const controlHoverAlpha = Math.min(1, overlayAlpha + 0.12);
 
   document.documentElement.style.setProperty("--html-bg", isDark ? `rgba(30, 30, 30, ${baseLayerAlpha})` : `rgba(243, 243, 243, ${baseLayerAlpha})`);
   document.documentElement.style.setProperty(
@@ -1593,6 +1600,9 @@ function applyVisualSettings() {
   );
   elements.app.style.setProperty("--panel", isDark ? `rgba(37, 37, 38, ${panelAlpha})` : `rgba(248, 248, 248, ${panelAlpha})`);
   elements.app.style.setProperty("--panel-strong", isDark ? `rgba(30, 30, 30, ${strongAlpha})` : `rgba(255, 255, 255, ${strongAlpha})`);
+  elements.app.style.setProperty("--control-surface", isDark ? `rgba(42, 42, 42, ${controlAlpha})` : `rgba(255, 255, 255, ${controlAlpha})`);
+  elements.app.style.setProperty("--control-surface-hover", isDark ? `rgba(55, 55, 55, ${controlHoverAlpha})` : `rgba(239, 239, 239, ${controlHoverAlpha})`);
+  elements.app.style.setProperty("--control-surface-solid", isDark ? "#2a2a2a" : "#ffffff");
   elements.app.style.setProperty("--topbar-bg", isDark ? `rgba(24, 24, 24, ${Math.min(0.99, overlayAlpha + 0.04)})` : `rgba(45, 45, 48, ${Math.min(0.99, overlayAlpha + 0.04)})`);
   elements.app.style.setProperty("--count-bg", isDark ? `rgba(51, 51, 51, ${softAlpha})` : `rgba(234, 234, 234, ${softAlpha})`);
   elements.app.style.setProperty("--tag-bg", isDark ? `rgba(45, 45, 48, ${softAlpha})` : `rgba(243, 243, 243, ${softAlpha})`);

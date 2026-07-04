@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Bookmark Shelf</title>
     <script src="src/surface.js"></script>
-    <link rel="stylesheet" href="src/styles.css?v=visvim-7">
+    <link rel="stylesheet" href="src/styles.css?v=visvim-8">
   </head>
   <body class="popup-shell">
     <div id="app" class="app" data-layout="grouped" data-density="cards">
@@ -178,7 +178,7 @@
             <input id="floatingButtonSize" type="range" min="34" max="120" step="2" value="46">
           </label>
           <label class="settings-row">重ね表示の背景透明度
-            <input id="overlayOpacityInput" type="range" min="45" max="98" step="1" value="86">
+            <span class="opacity-control"><input id="overlayOpacityInput" type="range" min="30" max="100" step="1" value="86"><output id="overlayOpacityValue" for="overlayOpacityInput">86%</output></span>
           </label>
           <label class="check-row"><input id="requireCategorySelection" type="checkbox" checked>ジャンル選択まで一覧を表示しない</label>
           <label class="settings-row">カード幅
