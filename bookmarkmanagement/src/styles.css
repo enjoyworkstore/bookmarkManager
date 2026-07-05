@@ -3163,6 +3163,9 @@ input:focus-visible {
   --tag-bg: #fafafa;
   --card-bg: #ffffff;
   --card-bg-hover: #fafafa;
+  --control-surface: #ffffff;
+  --control-surface-hover: #efefef;
+  --control-surface-solid: #ffffff;
   --newtab-shell-bg: #ffffff;
   --newtab-panel-bg: rgba(255, 255, 255, 0.96);
   --newtab-card-bg: #ffffff;
@@ -3188,6 +3191,9 @@ html[data-theme="dark"],
   --tag-bg: #303030;
   --card-bg: #282828;
   --card-bg-hover: #303030;
+  --control-surface: #2a2a2a;
+  --control-surface-hover: #373737;
+  --control-surface-solid: #2a2a2a;
   --newtab-shell-bg: #222222;
   --newtab-panel-bg: rgba(34, 34, 34, 0.96);
   --newtab-card-bg: #282828;
@@ -4077,4 +4083,82 @@ html[data-theme="dark"] .newtab-bookmark[data-kind="pinned"] .newtab-bookmark-ba
 
 .newtab-bookmark[data-drop-position="after"]::after {
   right: -2px;
+}
+
+/* Unified theme-aware opacity surfaces. */
+.app .search-box,
+.app .sort-box,
+.app .saved-view-box,
+.app .size-control {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--control-surface);
+}
+
+.app .search-box:hover,
+.app .sort-box:hover,
+.app .saved-view-box:hover,
+.app .size-control:hover {
+  border-color: #b7b7b7;
+  background: var(--control-surface-hover);
+}
+
+.app .search-box:focus-within,
+.app .sort-box:focus-within,
+.app .saved-view-box:focus-within {
+  border-color: var(--text);
+  background: var(--control-surface);
+}
+
+.app .search-box input,
+.app .sort-box select,
+.app .saved-view-box select {
+  background: transparent;
+}
+
+.app .sort-box option,
+.app .saved-view-box option,
+.app .batch-bar option,
+.app .edit-dialog option {
+  color: var(--text);
+  background: var(--control-surface-solid);
+}
+
+.app .segmented,
+.app .batch-bar select {
+  background: var(--control-surface);
+}
+
+.app .edit-dialog input[type="text"],
+.app .edit-dialog input[type="url"],
+.app .edit-dialog select,
+.app .genre-add-row input,
+.app .genre-editor-row input,
+.app .domain-row select {
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--control-surface);
+}
+
+.app .category-choice[data-suggested="true"],
+.app .domain-row[data-suggested="true"] {
+  background: var(--control-surface-hover);
+}
+
+.opacity-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 10px;
+}
+
+.opacity-control output {
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--control-surface);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
