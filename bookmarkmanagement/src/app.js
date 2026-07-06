@@ -42,6 +42,8 @@ const DEFAULT_STATE = {
 
 const BOOKMARK_STAR_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bookmark-star-fill bookmark-star-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill-rule="evenodd" d="M2 15.5V2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13.5a.5.5 0 0 1-.74.439L8 13.069l-5.26 2.87A.5.5 0 0 1 2 15.5M8.16 4.1a.178.178 0 0 0-.32 0l-.634 1.285a.18.18 0 0 1-.134.098l-1.42.206a.178.178 0 0 0-.098.303L6.58 6.993c.042.041.061.1.051.158L6.39 8.565a.178.178 0 0 0 .258.187l1.27-.668a.18.18 0 0 1 .165 0l1.27.668a.178.178 0 0 0 .257-.187L9.368 7.15a.18.18 0 0 1 .05-.158l1.028-1.001a.178.178 0 0 0-.098-.303l-1.42-.206a.18.18 0 0 1-.134-.098z"/></svg>`;
 const TRASH_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3 trash-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg>`;
+const PIN_OUTLINE_ICON = `<svg class="pin-state-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5.25 3.25h9.5v13.1L10 13.45l-4.75 2.9V3.25Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+const PIN_FILLED_ICON = `<svg class="pin-state-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5.25 3.25h9.5v13.1L10 13.45l-4.75 2.9V3.25Z" fill="currentColor"/></svg>`;
 const OPEN_BEHAVIOR_ORDER = ["new-tab-close", "same-tab-keep", "same-tab-close"];
 const OPEN_BEHAVIOR_META = {
   "new-tab-close": { icon: "↗", labelKey: "behaviorNewTabClose" },
@@ -583,6 +585,12 @@ function setBookmarkStarIcon(element) {
   if (!element || element.dataset.icon === "bookmark-star") return;
   element.innerHTML = BOOKMARK_STAR_ICON;
   element.dataset.icon = "bookmark-star";
+}
+
+function setPinStateIcon(element, pinned) {
+  if (!element) return;
+  element.innerHTML = pinned ? PIN_FILLED_ICON : PIN_OUTLINE_ICON;
+  element.dataset.icon = pinned ? "pin-filled" : "pin-outline";
 }
 
 function setTrashIcon(element) {
@@ -2580,7 +2588,7 @@ function createLightweightBookmarkCard(bookmark) {
   card.querySelector(".bookmark-meta").textContent = host || bookmark.url;
   card.querySelector(".category-tag").textContent = displayCategoryName(bookmark.category);
   const pinButton = card.querySelector(".pin-button");
-  pinButton.textContent = pinned ? "★" : "☆";
+  setPinStateIcon(pinButton, pinned);
   pinButton.dataset.active = pinned ? "true" : "false";
   pinButton.setAttribute("aria-pressed", pinned ? "true" : "false");
   setControlLabel(pinButton, pinned ? t("unpin") : t("pin"));
@@ -2653,7 +2661,7 @@ function createBookmarkCard(bookmark, options = {}) {
   }
   card.querySelector(".select-card-button").textContent = selectedIds.has(bookmark.id) ? "☑" : "□";
   const pinButton = card.querySelector(".pin-button");
-  pinButton.textContent = pinned ? "★" : "☆";
+  setPinStateIcon(pinButton, pinned);
   pinButton.dataset.active = pinned ? "true" : "false";
   pinButton.setAttribute("aria-pressed", pinned ? "true" : "false");
   setControlLabel(card.querySelector(".preview"), t("open"));

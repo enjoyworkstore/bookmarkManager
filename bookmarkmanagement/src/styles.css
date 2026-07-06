@@ -4162,3 +4162,244 @@ html[data-theme="dark"] .newtab-bookmark[data-kind="pinned"] .newtab-bookmark-ba
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
+
+/* Bookmark-shaped pin controls replace the circular star treatment. */
+.pin-state-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  pointer-events: none;
+}
+
+.app .quick-pin-button,
+.app .pin-button,
+.newtab-pin-button {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  padding: 3px;
+  border-color: transparent;
+  border-radius: 4px;
+  color: var(--muted);
+  background: transparent;
+}
+
+.app .quick-pin-button:hover,
+.app .pin-button:hover,
+.newtab-pin-button:hover,
+.newtab-pin-button:focus-visible {
+  border-color: transparent;
+  color: var(--text);
+  background: var(--control-surface-hover);
+}
+
+.app .quick-pin-button[data-active="true"],
+.app .pin-button[data-active="true"],
+.newtab-pin-button[data-active="true"] {
+  border-color: transparent;
+  color: #9a6200;
+  background: transparent;
+}
+
+.app[data-theme="dark"] .quick-pin-button[data-active="true"],
+.app[data-theme="dark"] .pin-button[data-active="true"],
+html[data-theme="dark"] .newtab-pin-button[data-active="true"] {
+  color: #e8c378;
+}
+
+.app .quick-pin-button[data-active="true"]:hover,
+.app .pin-button[data-active="true"]:hover,
+.newtab-pin-button[data-active="true"]:hover {
+  background: var(--control-surface-hover);
+}
+
+/* The actionable pin already communicates state; avoid a duplicate ribbon. */
+.bookmark-card[data-frequent="true"][data-pinned="true"]::after {
+  display: none;
+}
+
+.bookmark-card[data-frequent="true"][data-pinned="true"] .bookmark-body {
+  padding-right: 0;
+}
+
+/* Compact mode reserves almost all horizontal space for the bookmark name. */
+.app[data-density="compact"] .bookmark-card,
+.app[data-density="compact"] .bookmark-card[data-lite="true"],
+.app[data-density="compact"]:not([data-quick-full="true"]) .quick-section .bookmark-card,
+.app[data-density="compact"]:not([data-quick-full="true"]) .recent-section .bookmark-card,
+.app[data-density="compact"][data-quick-full="true"] .quick-section .bookmark-card {
+  min-height: 34px;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  gap: 5px;
+  padding: 4px 7px;
+  align-items: center;
+}
+
+.app[data-density="compact"] .bookmark-card .preview,
+.app[data-density="compact"] .bookmark-card .category-tag {
+  display: none;
+}
+
+.app[data-density="compact"] .bookmark-card .bookmark-body {
+  min-width: 0;
+  grid-column: 1;
+  padding-right: 0;
+}
+
+.app[data-density="compact"] .bookmark-card .card-actions,
+.app[data-density="compact"] .bookmark-card > .quick-pin-button {
+  min-width: 24px;
+  grid-column: 2;
+  justify-self: end;
+}
+
+.app[data-density="compact"] .bookmark-card .bookmark-title,
+.app[data-density="compact"]:not([data-quick-full="true"]) .quick-section .bookmark-title,
+.app[data-density="compact"]:not([data-quick-full="true"]) .recent-section .bookmark-title,
+.app[data-density="compact"][data-quick-full="true"] .quick-section .bookmark-title {
+  width: 100%;
+  overflow: hidden;
+  display: block;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.25;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app[data-density="compact"] .bookmark-card .pin-button {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  padding: 2px;
+}
+
+.app[data-density="compact"] .bookmark-card .pin-state-icon {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 560px) {
+  .app[data-density="compact"] .quick-section .bookmark-grid,
+  .app[data-density="compact"] .recent-section .bookmark-grid,
+  .app[data-density="compact"][data-quick-full="true"] .quick-section .bookmark-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Frequent cards should read as one clear interactive target. */
+.app .bookmark-card[data-frequent="true"] {
+  cursor: pointer;
+}
+
+.app .bookmark-card[data-frequent="true"]:hover,
+.app .bookmark-card[data-frequent="true"]:focus-within {
+  border-color: #707070;
+  background: var(--control-surface-hover);
+  box-shadow: inset 3px 0 0 var(--text) !important;
+}
+
+.app[data-theme="dark"] .bookmark-card[data-frequent="true"]:hover,
+.app[data-theme="dark"] .bookmark-card[data-frequent="true"]:focus-within {
+  border-color: #b7b7b7;
+}
+
+.app .bookmark-card[data-frequent="true"]:hover .bookmark-title,
+.app .bookmark-card[data-frequent="true"]:focus-within .bookmark-title {
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* View actions need a persistent light surface in the light theme. */
+.app:not([data-theme="dark"]) #saveViewButton,
+.app:not([data-theme="dark"]) #deleteViewButton {
+  border-color: #b7b7b7;
+  color: #222222;
+  background: #ffffff;
+}
+
+.app:not([data-theme="dark"]) #saveViewButton:hover,
+.app:not([data-theme="dark"]) #deleteViewButton:hover {
+  border-color: #707070;
+  background: #e5e5e5;
+}
+
+/* Dark mode icons stay unframed until interaction. */
+.app[data-theme="dark"] .icon-button,
+.app[data-theme="dark"] .topbar .icon-button,
+.app[data-theme="dark"] .card-actions .icon-button,
+.app[data-theme="dark"] .segmented button {
+  border-color: transparent;
+  border-radius: 4px;
+  background: transparent;
+}
+
+.app[data-theme="dark"] .icon-button:hover,
+.app[data-theme="dark"] .topbar .icon-button:hover,
+.app[data-theme="dark"] .card-actions .icon-button:hover,
+.app[data-theme="dark"] .segmented button:hover {
+  border-color: transparent;
+  background: var(--control-surface-hover);
+}
+
+.app[data-theme="dark"] .icon-button.active,
+.app[data-theme="dark"] .segmented button.active {
+  border-color: transparent;
+  border-radius: 4px;
+}
+
+/* Dark genre controls belong to the same restrained surface as the panel. */
+.app[data-theme="dark"] .genre-chip {
+  border-color: #494949;
+  color: #b7b7b7;
+  background: var(--control-surface);
+}
+
+.app[data-theme="dark"] .genre-chip:hover {
+  border-color: #707070;
+  color: #ffffff;
+  background: var(--control-surface-hover);
+}
+
+.app[data-theme="dark"] .genre-chip[data-active="true"],
+.app[data-theme="dark"] .genre-chip[data-active="true"]:hover {
+  border-color: #b7b7b7;
+  color: #ffffff;
+  background: #303030;
+}
+
+/* Restrained typography: no bold weights anywhere in the product UI. */
+.app,
+.newtab-shell,
+.app *,
+.newtab-shell * {
+  font-weight: 300 !important;
+}
+
+.app h1,
+.app h2,
+.app h3,
+.app h4,
+.app h5,
+.app h6,
+.app strong,
+.app b,
+.app button,
+.app select,
+.app option,
+.app .bookmark-title,
+.app .genre-chip,
+.app .count,
+.newtab-shell h1,
+.newtab-shell h2,
+.newtab-shell h3,
+.newtab-shell strong,
+.newtab-shell b,
+.newtab-shell button,
+.newtab-shell select,
+.newtab-shell option,
+.newtab-shell .newtab-bookmark-title {
+  font-weight: 400 !important;
+}

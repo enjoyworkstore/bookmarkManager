@@ -1,10 +1,17 @@
 (() => {
-  const OVERLAY_HOST_VERSION = "2026-06-14-floating-color-v20";
+  const OVERLAY_HOST_VERSION = "2026-07-06-gesture-overlap-v23";
   const STORAGE_KEY = "bookmarkShelfState";
   const HOST_ID = "bookmark-shelf-overlay-host";
+  const BACKDROP_ID = "bookmark-shelf-overlay-backdrop";
   const FLOATING_ID = "bookmark-shelf-floating-launcher";
+  const GESTURE_DOCK_ID = "bookmark-shelf-gesture-dock";
   const OVERLAY_URL = chrome.runtime.getURL("launcher.html?surface=overlay");
   const CAPTURE_ACTIVE = { capture: true, passive: false };
+  const FLOATING_GESTURE_ACTIONS = [
+    { action: "back", icon: "←", label: "戻る" },
+    { action: "forward", icon: "→", label: "進む" },
+    { action: "reload", icon: "↻", label: "再読込" }
+  ];
 
   if (window.__bookmarkShelfOverlayInstalled === OVERLAY_HOST_VERSION) return;
   window.__bookmarkShelfOverlayInstalled = OVERLAY_HOST_VERSION;
@@ -24,7 +31,6 @@
   const FLOATING_COLLAPSE_CLICK_ZONE_PX = 58;
   const FLOATING_DRAG_THRESHOLD_PX = 6;
   const FLOATING_HIT_SLOP_PX = 28;
-  const FLOATING_POSITION_SAVE_DEBOUNCE_MS = 220;
   const FLOATING_SIZE_MIN = 34;
   const FLOATING_SIZE_MAX = 120;
   const FLOATING_POSITIONS = new Set(["right-center", "right-top", "right-bottom", "left-center", "left-top", "left-bottom"]);
@@ -34,10 +40,9 @@
   let floatingContextMenuSuppressUntil = 0;
   let floatingContextMenuSuppressPoint = null;
   let floatingPointerState = null;
-  let floatingPositionSaveTimer = 0;
   let floatingSecondaryFallbackTimer = 0;
-  let pendingFloatingPosition = null;
   let suppressNextFloatingClick = false;
+  let floatingGestureDockState = null;
   let currentFloatingState = { ...DEFAULT_FLOATING_SETTINGS };
 
   function getOverlay() {
@@ -50,10 +55,238 @@
 
   function removeOverlay() {
     getOverlay()?.remove();
+    document.getElementById(BACKDROP_ID)?.remove();
   }
 
   function removeFloatingLauncher() {
+    removeFloatingGestureDock();
     getFloatingLauncher()?.remove();
+  }
+
+  function createOverlayBackdrop() {
+    document.getElementById(BACKDROP_ID)?.remove();
+    const backdrop = document.createElement("div");
+    backdrop.id = BACKDROP_ID;
+    backdrop.setAttribute("aria-hidden", "true");
+    setImportantStyles(backdrop, {
+      all: "initial",
+      position: "fixed",
+      inset: "0",
+      "z-index": "2147483645",
+      display: "block",
+      "box-sizing": "border-box",
+      background: "rgba(15, 15, 15, 0.08)",
+      "backdrop-filter": "blur(4px) saturate(0.96)",
+      "-webkit-backdrop-filter": "blur(4px) saturate(0.96)",
+      "pointer-events": "auto"
+    });
+    document.documentElement.append(backdrop);
+  }
+
+  function createFloatingGestureDock(anchorRect) {
+    if (floatingGestureDockState) return floatingGestureDockState;
+
+    const host = document.createElement("div");
+    host.id = GESTURE_DOCK_ID;
+    host.dataset.activeAction = "";
+    host.setAttribute("aria-hidden", "true");
+    setImportantStyles(host, {
+      all: "initial",
+      position: "fixed",
+      top: "0",
+      left: "0",
+      right: "auto",
+      bottom: "auto",
+      transform: "none",
+      "z-index": "2147483647",
+      display: "block",
+      "pointer-events": "none",
+      "user-select": "none",
+      visibility: "hidden",
+      opacity: "1"
+    });
+
+    const shadow = host.attachShadow({ mode: "closed" });
+    const tray = document.createElement("div");
+    setImportantStyles(tray, {
+      all: "initial",
+      display: "flex",
+      gap: "8px",
+      padding: "8px",
+      border: "1px solid rgba(255, 255, 255, 0.2)",
+      "border-radius": "14px",
+      background: "rgba(28, 28, 28, 0.9)",
+      "box-shadow": "0 14px 36px rgba(0, 0, 0, 0.32)",
+      "backdrop-filter": "blur(12px)",
+      "-webkit-backdrop-filter": "blur(12px)"
+    });
+
+    const targets = FLOATING_GESTURE_ACTIONS.map(({ action, icon, label }) => {
+      const target = document.createElement("div");
+      target.dataset.action = action;
+      target.title = label;
+      setImportantStyles(target, {
+        all: "initial",
+        width: "64px",
+        height: "54px",
+        display: "grid",
+        "grid-template-rows": "28px 14px",
+        "place-items": "center",
+        "box-sizing": "border-box",
+        padding: "5px 4px 4px",
+        border: "1px solid #494949",
+        "border-radius": "9px",
+        color: "#d7d7d7",
+        background: "#2a2a2a",
+        "font-family": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "pointer-events": "none",
+        transition: "transform 90ms ease, border-color 90ms ease, background-color 90ms ease"
+      });
+
+      const iconNode = document.createElement("span");
+      iconNode.textContent = icon;
+      setImportantStyles(iconNode, {
+        all: "initial",
+        color: "inherit",
+        "font-family": "system-ui, sans-serif",
+        "font-size": "23px",
+        "font-weight": "400",
+        "line-height": "1"
+      });
+      const labelNode = document.createElement("span");
+      labelNode.textContent = label;
+      setImportantStyles(labelNode, {
+        all: "initial",
+        color: "inherit",
+        "font-family": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "font-size": "10px",
+        "font-weight": "400",
+        "line-height": "1"
+      });
+      target.append(iconNode, labelNode);
+      tray.append(target);
+      return { action, target };
+    });
+
+    shadow.append(tray);
+    document.documentElement.append(host);
+    positionFloatingGestureDock(host, anchorRect);
+    floatingGestureDockState = { host, targets, activeAction: "" };
+    return floatingGestureDockState;
+  }
+
+  function positionFloatingGestureDock(host, anchorRect) {
+    const fallbackRect = getFloatingLauncher()?.getBoundingClientRect();
+    const anchor = anchorRect || fallbackRect;
+    if (!anchor) return;
+
+    const dockRect = host.getBoundingClientRect();
+    const edge = 10;
+    const gap = 12;
+    const anchorCenterX = anchor.left + anchor.width / 2;
+    const placeOnLeft = anchorCenterX >= window.innerWidth / 2;
+    const preferredLeft = placeOnLeft
+      ? anchor.left - dockRect.width - gap
+      : anchor.right + gap;
+    const alternateLeft = placeOnLeft
+      ? anchor.right + gap
+      : anchor.left - dockRect.width - gap;
+    let left = preferredLeft;
+    if (left < edge || left + dockRect.width > window.innerWidth - edge) {
+      left = alternateLeft;
+    }
+    left = Math.min(
+      Math.max(edge, left),
+      Math.max(edge, window.innerWidth - dockRect.width - edge)
+    );
+    const top = Math.min(
+      Math.max(edge, anchor.top + (anchor.height - dockRect.height) / 2),
+      Math.max(edge, window.innerHeight - dockRect.height - edge)
+    );
+    setImportantStyles(host, {
+      top: `${Math.round(top)}px`,
+      left: `${Math.round(left)}px`,
+      visibility: "visible"
+    });
+  }
+
+  function updateFloatingGestureDock(clientX, clientY) {
+    const dock = floatingGestureDockState || createFloatingGestureDock();
+    const floatingRect = getFloatingLauncherVisualRect();
+    const candidates = dock.targets.map(({ action, target }) => {
+      const rect = target.getBoundingClientRect();
+      const pointerInside = clientX >= rect.left - 8
+        && clientX <= rect.right + 8
+        && clientY >= rect.top - 8
+        && clientY <= rect.bottom + 8;
+      const overlapRatio = floatingRect ? getRectOverlapRatio(floatingRect, rect) : 0;
+      return {
+        action,
+        target,
+        score: pointerInside ? 2 : overlapRatio
+      };
+    });
+    const bestCandidate = candidates.reduce(
+      (best, candidate) => candidate.score > best.score ? candidate : best,
+      { action: "", score: 0 }
+    );
+    const activeAction = bestCandidate.score >= 0.22 ? bestCandidate.action : "";
+    candidates.forEach(({ action, target }) => {
+      const active = action === activeAction;
+      setImportantStyles(target, active ? {
+        border: "1px solid #d7d7d7",
+        color: "#ffffff",
+        background: "#494949",
+        transform: "translateY(-3px) scale(1.04)"
+      } : {
+        border: "1px solid #494949",
+        color: "#d7d7d7",
+        background: "#2a2a2a",
+        transform: "none"
+      });
+    });
+    dock.activeAction = activeAction;
+    dock.host.dataset.activeAction = activeAction;
+    return activeAction;
+  }
+
+  function getFloatingLauncherVisualRect() {
+    const host = getFloatingLauncher();
+    if (!host) return null;
+    const hostRect = host.getBoundingClientRect();
+    const settings = getFloatingSettings(currentFloatingState);
+    const visualWidth = Math.min(hostRect.width, getFloatingBoxMetrics(settings).width);
+    const alignLeft = getFloatingSide(settings.position) === "left";
+    const left = alignLeft ? hostRect.left : hostRect.right - visualWidth;
+    return {
+      left,
+      top: hostRect.top,
+      right: left + visualWidth,
+      bottom: hostRect.bottom,
+      width: visualWidth,
+      height: hostRect.height
+    };
+  }
+
+  function getRectOverlapRatio(source, target) {
+    const width = Math.max(0, Math.min(source.right, target.right) - Math.max(source.left, target.left));
+    const height = Math.max(0, Math.min(source.bottom, target.bottom) - Math.max(source.top, target.top));
+    const targetArea = Math.max(1, target.width * target.height);
+    return (width * height) / targetArea;
+  }
+
+  function removeFloatingGestureDock() {
+    floatingGestureDockState?.host.remove();
+    floatingGestureDockState = null;
+  }
+
+  async function runFloatingBrowserAction(action) {
+    if (!FLOATING_GESTURE_ACTIONS.some((item) => item.action === action)) return false;
+    const response = await chrome.runtime.sendMessage({
+      type: "run-bookmark-shelf-browser-action",
+      action
+    }).catch(() => null);
+    return !!response?.ok;
   }
 
   function handleOutsidePointerDown(event) {
@@ -315,10 +548,10 @@
     const button = document.createElement("div");
     const colorScheme = getFloatingColorScheme(floatingSettings.color);
     const toggleHint = collapsed ? "右クリックで元に戻す" : "右クリックで縮小";
-    button.title = `Bookmark Shelf - 左クリックで開く / 右クリックで縮小切り替え / ドラッグで移動`;
+    button.title = `Bookmark Shelf - 左クリックで開く / 右クリックで縮小切り替え / ドラッグで移動・ブラウザー操作`;
     button.setAttribute("role", "button");
     button.setAttribute("tabindex", "0");
-    button.setAttribute("aria-label", `Bookmark Shelf を開く。${toggleHint}。ドラッグで位置を移動できます。`);
+    button.setAttribute("aria-label", `Bookmark Shelf を開く。${toggleHint}。ドラッグで位置移動、戻る、進む、再読み込みができます。`);
     setImportantStyles(button, {
       all: "initial",
       position: "absolute",
@@ -434,6 +667,14 @@
     if (!floatingPointerState.moved && Math.hypot(dx, dy) < FLOATING_DRAG_THRESHOLD_PX) return;
 
     floatingPointerState.moved = true;
+    createFloatingGestureDock({
+      left: floatingPointerState.left,
+      top: floatingPointerState.top,
+      right: floatingPointerState.left + floatingPointerState.width,
+      bottom: floatingPointerState.top + floatingPointerState.height,
+      width: floatingPointerState.width,
+      height: floatingPointerState.height
+    });
     const next = clampFloatingPosition(
       floatingPointerState.left + dx,
       floatingPointerState.top + dy,
@@ -448,7 +689,8 @@
       bottom: "auto",
       transform: "none"
     });
-    queueFloatingCustomPositionSave(next);
+    const activeAction = updateFloatingGestureDock(event.clientX, event.clientY);
+    host.dataset.gestureAction = activeAction;
     stopFloatingEvent(event);
   }
 
@@ -457,6 +699,9 @@
     if (!host || !floatingPointerState || floatingPointerState.pointerId !== event.pointerId) return;
 
     const state = floatingPointerState;
+    const gestureAction = state.moved
+      ? updateFloatingGestureDock(event.clientX, event.clientY)
+      : "";
     floatingPointerState = null;
     try {
       host.releasePointerCapture(event.pointerId);
@@ -464,13 +709,20 @@
       // Ignore release failures from pages that interrupt pointer capture.
     }
     host.dataset.dragging = "false";
+    host.dataset.gestureAction = "";
+    removeFloatingGestureDock();
 
     if (!state.moved) return;
-    const rect = host.getBoundingClientRect();
-    const next = clampFloatingPosition(rect.left, rect.top, rect.width, rect.height);
     suppressNextFloatingClick = true;
     stopFloatingEvent(event);
-    await flushFloatingCustomPositionSave(next);
+    if (gestureAction) {
+      applyFloatingLauncherState(currentFloatingState);
+      await runFloatingBrowserAction(gestureAction);
+    } else {
+      const rect = host.getBoundingClientRect();
+      const next = clampFloatingPosition(rect.left, rect.top, rect.width, rect.height);
+      await flushFloatingCustomPositionSave(next);
+    }
     setTimeout(() => {
       suppressNextFloatingClick = false;
     }, 180);
@@ -478,9 +730,15 @@
 
   function cancelFloatingPointer(event) {
     if (!floatingPointerState || floatingPointerState.pointerId !== event.pointerId) return;
+    const moved = floatingPointerState.moved;
     floatingPointerState = null;
     const host = getFloatingLauncher();
-    if (host) host.dataset.dragging = "false";
+    if (host) {
+      host.dataset.dragging = "false";
+      host.dataset.gestureAction = "";
+    }
+    removeFloatingGestureDock();
+    if (moved) applyFloatingLauncherState(currentFloatingState);
   }
 
   function handleFloatingClick(event) {
@@ -615,23 +873,7 @@
     }, options);
   }
 
-  function queueFloatingCustomPositionSave(position) {
-    pendingFloatingPosition = position;
-    clearTimeout(floatingPositionSaveTimer);
-    floatingPositionSaveTimer = setTimeout(() => {
-      floatingPositionSaveTimer = 0;
-      const next = pendingFloatingPosition;
-      pendingFloatingPosition = null;
-      if (next) {
-        setFloatingCustomPosition(next, { apply: false }).catch(() => {});
-      }
-    }, FLOATING_POSITION_SAVE_DEBOUNCE_MS);
-  }
-
   async function flushFloatingCustomPositionSave(position) {
-    clearTimeout(floatingPositionSaveTimer);
-    floatingPositionSaveTimer = 0;
-    pendingFloatingPosition = null;
     await setFloatingCustomPosition(position);
   }
 
@@ -700,6 +942,7 @@
 
   function createOverlay(url) {
     removeOverlay();
+    createOverlayBackdrop();
 
     const host = document.createElement("div");
     host.id = HOST_ID;

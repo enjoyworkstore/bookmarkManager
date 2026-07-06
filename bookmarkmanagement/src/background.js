@@ -96,8 +96,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "run-bookmark-shelf-browser-action") {
+    runBookmarkShelfBrowserAction(message.action, sender?.tab?.id)
+      .then((ok) => sendResponse({ ok }))
+      .catch(() => sendResponse({ ok: false }));
+    return true;
+  }
+
   return false;
 });
+
+async function runBookmarkShelfBrowserAction(action, tabId) {
+  if (!Number.isInteger(tabId)) return false;
+  if (action === "back") {
+    await chrome.tabs.goBack(tabId);
+    return true;
+  }
+  if (action === "forward") {
+    await chrome.tabs.goForward(tabId);
+    return true;
+  }
+  if (action === "reload") {
+    await chrome.tabs.reload(tabId);
+    return true;
+  }
+  return false;
+}
 
 async function patchShelfState(patch) {
   if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
