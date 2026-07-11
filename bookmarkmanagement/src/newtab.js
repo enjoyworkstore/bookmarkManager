@@ -8,6 +8,8 @@ const RECENT_LIMIT = 6;
 const RECENT_FALLBACK_LIMIT = 24;
 const SEARCH_LIMIT = 48;
 const DEFAULT_OVERLAY_OPACITY = 86;
+const PIN_OUTLINE_ICON = `<svg class="pin-state-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5.25 3.25h9.5v13.1L10 13.45l-4.75 2.9V3.25Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+const PIN_FILLED_ICON = `<svg class="pin-state-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5.25 3.25h9.5v13.1L10 13.45l-4.75 2.9V3.25Z" fill="currentColor"/></svg>`;
 const CALENDAR_WEEKDAYS = {
   ja: ["日", "月", "火", "水", "木", "金", "土"],
   en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -431,7 +433,7 @@ function createBookmarkLink(bookmark) {
   pinButton.className = "newtab-pin-button";
   pinButton.type = "button";
   pinButton.draggable = false;
-  pinButton.textContent = pinned ? "★" : "☆";
+  pinButton.innerHTML = pinned ? PIN_FILLED_ICON : PIN_OUTLINE_ICON;
   pinButton.dataset.active = pinned ? "true" : "false";
   pinButton.setAttribute("aria-pressed", String(pinned));
   pinButton.setAttribute("aria-label", pinned ? t("unpinBookmark") : t("pinBookmark"));

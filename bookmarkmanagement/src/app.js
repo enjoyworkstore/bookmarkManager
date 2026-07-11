@@ -32,6 +32,7 @@ const DEFAULT_STATE = {
   floatingButtonColor: "dark",
   floatingButtonSize: 46,
   floatingButtonCollapsed: false,
+  floatingButtonMode: "pins",
   floatingButtonCustomPosition: null,
   floatingStateRevision: 0,
   savedViews: [],
@@ -42,6 +43,8 @@ const DEFAULT_STATE = {
 
 const BOOKMARK_STAR_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bookmark-star-fill bookmark-star-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill-rule="evenodd" d="M2 15.5V2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13.5a.5.5 0 0 1-.74.439L8 13.069l-5.26 2.87A.5.5 0 0 1 2 15.5M8.16 4.1a.178.178 0 0 0-.32 0l-.634 1.285a.18.18 0 0 1-.134.098l-1.42.206a.178.178 0 0 0-.098.303L6.58 6.993c.042.041.061.1.051.158L6.39 8.565a.178.178 0 0 0 .258.187l1.27-.668a.18.18 0 0 1 .165 0l1.27.668a.178.178 0 0 0 .257-.187L9.368 7.15a.18.18 0 0 1 .05-.158l1.028-1.001a.178.178 0 0 0-.098-.303l-1.42-.206a.18.18 0 0 1-.134-.098z"/></svg>`;
 const TRASH_ICON = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3 trash-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg>`;
+const PIN_OUTLINE_ICON = `<svg class="pin-state-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5.25 3.25h9.5v13.1L10 13.45l-4.75 2.9V3.25Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+const PIN_FILLED_ICON = `<svg class="pin-state-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M5.25 3.25h9.5v13.1L10 13.45l-4.75 2.9V3.25Z" fill="currentColor"/></svg>`;
 const OPEN_BEHAVIOR_ORDER = ["new-tab-close", "same-tab-keep", "same-tab-close"];
 const OPEN_BEHAVIOR_META = {
   "new-tab-close": { icon: "↗", labelKey: "behaviorNewTabClose" },
@@ -71,6 +74,7 @@ const PANEL_RATIO_MODES = new Set(["bookmarks", "frequent"]);
 const FLOATING_BUTTON_POSITIONS = new Set(["right-center", "right-top", "right-bottom", "left-center", "left-top", "left-bottom"]);
 const FLOATING_BUTTON_SHAPES = new Set(["rail", "tab", "button", "diamond"]);
 const FLOATING_BUTTON_COLORS = new Set(["dark", "light"]);
+const FLOATING_BUTTON_MODES = new Set(["collapsed", "pins"]);
 const FLOATING_BUTTON_SIZE_MIN = 34;
 const FLOATING_BUTTON_SIZE_MAX = 120;
 const FLOATING_BUTTON_POSITION_LABELS = {
@@ -215,7 +219,7 @@ const UI_TEXT = {
     newGenrePlaceholder: "新しいジャンル",
     add: "追加",
     settingsHeading: "設定",
-    settingsNote: "設定は基本的にすぐ反映されます。フローティング起動ボタンは左クリックで開き、右クリックで縮小表示を切り替え、ドラッグで位置を動かせます。フローティングボタンが出ない既存タブはページを再読み込みしてください。brave:// などの内部ページには表示できません。",
+    settingsNote: "設定は基本的にすぐ反映されます。フローティング起動ボタンは右クリックで最小表示と固定一覧を切り替え、ドラッグで位置を動かせます。最小表示は左クリックで開きます。フローティングボタンが出ない既存タブはページを再読み込みしてください。brave:// などの内部ページには表示できません。",
     cardWidth: "カード幅",
     requireCategorySelection: "ジャンル選択まで一覧を表示しない",
     launchMode: "起動方法",
@@ -351,7 +355,7 @@ const UI_TEXT = {
     newGenrePlaceholder: "New genre",
     add: "Add",
     settingsHeading: "Settings",
-    settingsNote: "Most settings apply immediately. Left-click the floating launcher to open it, right-click to switch compact display, and drag it to move its position. Reload existing tabs if the floating button does not appear. Browser internal pages such as brave:// cannot show it.",
+    settingsNote: "Most settings apply immediately. Right-click the floating launcher to switch between compact and pinned-list modes, and drag it to move its position. Left-click the compact launcher to open Bookmark Shelf. Reload existing tabs if the floating button does not appear. Browser internal pages such as brave:// cannot show it.",
     cardWidth: "Card width",
     requireCategorySelection: "Hide bookmark list until a genre is selected",
     launchMode: "Launch mode",
@@ -585,6 +589,12 @@ function setBookmarkStarIcon(element) {
   element.dataset.icon = "bookmark-star";
 }
 
+function setPinStateIcon(element, pinned) {
+  if (!element) return;
+  element.innerHTML = pinned ? PIN_FILLED_ICON : PIN_OUTLINE_ICON;
+  element.dataset.icon = pinned ? "pin-filled" : "pin-outline";
+}
+
 function setTrashIcon(element) {
   if (!element || element.dataset.icon === "trash") return;
   element.innerHTML = TRASH_ICON;
@@ -738,6 +748,12 @@ function normalizeFloatingButtonColor(value) {
   return FLOATING_BUTTON_COLORS.has(value) ? value : DEFAULT_STATE.floatingButtonColor;
 }
 
+function normalizeFloatingButtonMode(value, collapsed = false) {
+  if (value === "collapsed" || collapsed) return "collapsed";
+  if (value === "pins" || value === "expanded") return "pins";
+  return DEFAULT_STATE.floatingButtonMode;
+}
+
 function clearRenderDataCache() {
   renderDataCache.clear();
   duplicateUrlSetCache = null;
@@ -886,8 +902,9 @@ function bindEvents() {
   });
   elements.floatingButtonCollapsed?.addEventListener("change", async () => {
     state.floatingButtonCollapsed = elements.floatingButtonCollapsed.checked;
+    state.floatingButtonMode = state.floatingButtonCollapsed ? "collapsed" : "pins";
     state.floatingStateRevision = Date.now();
-    markFloatingSettingsDirty("floatingButtonCollapsed", "floatingStateRevision");
+    markFloatingSettingsDirty("floatingButtonCollapsed", "floatingButtonMode", "floatingStateRevision");
     await saveState();
   });
   elements.floatingButtonPosition?.addEventListener("change", async () => {
@@ -1100,7 +1117,10 @@ async function loadState() {
   state.floatingButtonShape = normalizeFloatingButtonShape(state.floatingButtonShape);
   state.floatingButtonColor = normalizeFloatingButtonColor(state.floatingButtonColor);
   state.floatingButtonSize = clampNumber(state.floatingButtonSize, FLOATING_BUTTON_SIZE_MIN, FLOATING_BUTTON_SIZE_MAX, DEFAULT_STATE.floatingButtonSize);
+  state.floatingButtonMode = normalizeFloatingButtonMode(state.floatingButtonMode, state.floatingButtonCollapsed);
   state.floatingButtonCollapsed = !!state.floatingButtonCollapsed;
+  if (state.floatingButtonMode === "collapsed") state.floatingButtonCollapsed = true;
+  if (state.floatingButtonMode === "pins") state.floatingButtonCollapsed = false;
   state.floatingButtonCustomPosition = normalizeFloatingCustomPosition(state.floatingButtonCustomPosition);
   state.floatingStateRevision = Number(state.floatingStateRevision) || 0;
   state.savedViews = normalizeSavedViews(state.savedViews);
@@ -1236,6 +1256,10 @@ function preserveExternalFloatingState(targetState, latestState, dirtyFields = n
   if (!dirtyFields.has("floatingButtonCollapsed") && "floatingButtonCollapsed" in latestState) {
     targetState.floatingButtonCollapsed = !!latestState.floatingButtonCollapsed;
   }
+  if (!dirtyFields.has("floatingButtonMode") && "floatingButtonMode" in latestState) {
+    targetState.floatingButtonMode = normalizeFloatingButtonMode(latestState.floatingButtonMode, targetState.floatingButtonCollapsed);
+    targetState.floatingButtonCollapsed = targetState.floatingButtonMode === "collapsed";
+  }
   if (!dirtyFields.has("floatingButtonCustomPosition") && "floatingButtonCustomPosition" in latestState) {
     targetState.floatingButtonCustomPosition = normalizeFloatingCustomPosition(latestState.floatingButtonCustomPosition);
   }
@@ -1253,7 +1277,8 @@ function pickFloatingState(sourceState) {
     floatingButtonShape: normalizeFloatingButtonShape(sourceState.floatingButtonShape),
     floatingButtonColor: normalizeFloatingButtonColor(sourceState.floatingButtonColor),
     floatingButtonSize: clampNumber(sourceState.floatingButtonSize, FLOATING_BUTTON_SIZE_MIN, FLOATING_BUTTON_SIZE_MAX, DEFAULT_STATE.floatingButtonSize),
-    floatingButtonCollapsed: !!sourceState.floatingButtonCollapsed,
+    floatingButtonCollapsed: normalizeFloatingButtonMode(sourceState.floatingButtonMode, sourceState.floatingButtonCollapsed) === "collapsed",
+    floatingButtonMode: normalizeFloatingButtonMode(sourceState.floatingButtonMode, sourceState.floatingButtonCollapsed),
     floatingButtonCustomPosition: normalizeFloatingCustomPosition(sourceState.floatingButtonCustomPosition),
     floatingStateRevision: Number(sourceState.floatingStateRevision) || 0
   };
@@ -2580,7 +2605,7 @@ function createLightweightBookmarkCard(bookmark) {
   card.querySelector(".bookmark-meta").textContent = host || bookmark.url;
   card.querySelector(".category-tag").textContent = displayCategoryName(bookmark.category);
   const pinButton = card.querySelector(".pin-button");
-  pinButton.textContent = pinned ? "★" : "☆";
+  setPinStateIcon(pinButton, pinned);
   pinButton.dataset.active = pinned ? "true" : "false";
   pinButton.setAttribute("aria-pressed", pinned ? "true" : "false");
   setControlLabel(pinButton, pinned ? t("unpin") : t("pin"));
@@ -2653,7 +2678,7 @@ function createBookmarkCard(bookmark, options = {}) {
   }
   card.querySelector(".select-card-button").textContent = selectedIds.has(bookmark.id) ? "☑" : "□";
   const pinButton = card.querySelector(".pin-button");
-  pinButton.textContent = pinned ? "★" : "☆";
+  setPinStateIcon(pinButton, pinned);
   pinButton.dataset.active = pinned ? "true" : "false";
   pinButton.setAttribute("aria-pressed", pinned ? "true" : "false");
   setControlLabel(card.querySelector(".preview"), t("open"));

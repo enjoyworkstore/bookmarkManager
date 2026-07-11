@@ -96,8 +96,46 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === "run-bookmark-shelf-browser-action") {
+    runBookmarkShelfBrowserAction(message.action, sender?.tab?.id)
+      .then((ok) => sendResponse({ ok }))
+      .catch(() => sendResponse({ ok: false }));
+    return true;
+  }
+
+  if (message?.type === "get-bookmark-shelf-pinned-bookmarks") {
+    getPinnedBookmarkItems()
+      .then((bookmarks) => sendResponse({ ok: true, bookmarks }))
+      .catch(() => sendResponse({ ok: false, bookmarks: [] }));
+    return true;
+  }
+
+  if (message?.type === "open-bookmark-shelf-pinned-bookmark") {
+    openPinnedBookmarkFromFloating(message, sender)
+      .then((ok) => sendResponse({ ok }))
+      .catch(() => sendResponse({ ok: false }));
+    return true;
+  }
+
   return false;
 });
+
+async function runBookmarkShelfBrowserAction(action, tabId) {
+  if (!Number.isInteger(tabId)) return false;
+  if (action === "back") {
+    await chrome.tabs.goBack(tabId);
+    return true;
+  }
+  if (action === "forward") {
+    await chrome.tabs.goForward(tabId);
+    return true;
+  }
+  if (action === "reload") {
+    await chrome.tabs.reload(tabId);
+    return true;
+  }
+  return false;
+}
 
 async function patchShelfState(patch) {
   if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
@@ -131,6 +169,70 @@ async function recordBookmarkOpen(bookmarkId) {
   };
   await chrome.storage.local.set({ [STORAGE_KEY]: nextState });
   cachedState = nextState;
+}
+
+async function getPinnedBookmarkItems() {
+  const state = await getShelfState();
+  const pinned = state.pinned && typeof state.pinned === "object" ? state.pinned : {};
+  const pinnedIds = Object.keys(pinned).filter((id) => pinned[id]);
+  if (!pinnedIds.length) return [];
+
+  const savedOrder = Array.isArray(state.pinnedOrder)
+    ? [...new Set(state.pinnedOrder.map((id) => String(id || "").trim()).filter((id) => id && pinned[id]))]
+    : [];
+  const orderedIds = await getPinnedRegistrationOrder(pinned, savedOrder);
+  const orderedSet = new Set(orderedIds);
+  pinnedIds
+    .filter((id) => !orderedSet.has(id))
+    .forEach((id) => orderedIds.push(id));
+
+  const tree = await chrome.bookmarks.getTree().catch(() => []);
+  const bookmarkMap = new Map();
+  const collect = (nodes) => {
+    (nodes || []).forEach((node) => {
+      if (node.url && pinned[node.id]) {
+        bookmarkMap.set(node.id, {
+          id: String(node.id),
+          title: String(node.title || node.url || "Bookmark"),
+          url: String(node.url || ""),
+          dateAdded: Number(node.dateAdded) || 0
+        });
+      }
+      if (node.children) collect(node.children);
+    });
+  };
+  collect(tree);
+
+  return orderedIds
+    .map((id) => bookmarkMap.get(id))
+    .filter((bookmark) => bookmark?.url);
+}
+
+async function openPinnedBookmarkFromFloating(message, sender) {
+  const bookmarkId = String(message?.bookmarkId || "").trim();
+  let url = String(message?.url || "").trim();
+  if (bookmarkId) {
+    const [bookmark] = await chrome.bookmarks.get(bookmarkId).catch(() => []);
+    if (bookmark?.url) url = bookmark.url;
+  }
+  if (!url) return false;
+
+  if (bookmarkId) {
+    await recordBookmarkOpen(bookmarkId).catch(() => {});
+  }
+
+  const tabId = sender?.tab?.id;
+  const windowId = sender?.tab?.windowId;
+  const openInNewTab = !!message?.openInNewTab || !Number.isInteger(tabId);
+  if (openInNewTab) {
+    const createArgs = { url, active: true };
+    if (Number.isInteger(windowId)) createArgs.windowId = windowId;
+    await chrome.tabs.create(createArgs);
+    return true;
+  }
+
+  await chrome.tabs.update(tabId, { url, active: true });
+  return true;
 }
 
 async function bookmarkAndPinCurrentPage(tab) {
