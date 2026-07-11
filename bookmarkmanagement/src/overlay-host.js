@@ -1,5 +1,5 @@
 (() => {
-  const OVERLAY_HOST_VERSION = "2026-07-06-gesture-overlap-v23";
+  const OVERLAY_HOST_VERSION = "2026-07-11-floating-two-modes-v25";
   const STORAGE_KEY = "bookmarkShelfState";
   const HOST_ID = "bookmark-shelf-overlay-host";
   const BACKDROP_ID = "bookmark-shelf-overlay-backdrop";
@@ -12,6 +12,8 @@
     { action: "forward", icon: "→", label: "進む" },
     { action: "reload", icon: "↻", label: "再読込" }
   ];
+  const FLOATING_DISPLAY_MODES = new Set(["collapsed", "pins"]);
+  const FLOATING_PIN_LIST_LIMIT = 24;
 
   if (window.__bookmarkShelfOverlayInstalled === OVERLAY_HOST_VERSION) return;
   window.__bookmarkShelfOverlayInstalled = OVERLAY_HOST_VERSION;
@@ -24,6 +26,7 @@
     floatingButtonColor: "dark",
     floatingButtonSize: 46,
     floatingButtonCollapsed: false,
+    floatingButtonMode: "pins",
     floatingButtonCustomPosition: null,
     floatingStateRevision: 0
   };
@@ -43,6 +46,8 @@
   let floatingSecondaryFallbackTimer = 0;
   let suppressNextFloatingClick = false;
   let floatingGestureDockState = null;
+  let floatingPinnedDockState = null;
+  let floatingPinnedLoadRequestId = 0;
   let currentFloatingState = { ...DEFAULT_FLOATING_SETTINGS };
 
   function getOverlay() {
@@ -60,6 +65,8 @@
 
   function removeFloatingLauncher() {
     removeFloatingGestureDock();
+    floatingPinnedDockState = null;
+    floatingPinnedLoadRequestId += 1;
     getFloatingLauncher()?.remove();
   }
 
@@ -322,13 +329,21 @@
     const color = FLOATING_COLORS.has(colorValue)
       ? colorValue
       : DEFAULT_FLOATING_SETTINGS.floatingButtonColor;
+    const rawCollapsed = !!(state.floatingButtonCollapsed ?? state.collapsed);
+    const rawMode = state.floatingButtonMode || state.mode;
+    const mode = rawMode === "collapsed" || rawCollapsed
+      ? "collapsed"
+      : rawMode === "pins" || rawMode === "expanded"
+        ? "pins"
+        : DEFAULT_FLOATING_SETTINGS.floatingButtonMode;
     return {
       enabled: (state.floatingButtonEnabled ?? state.enabled) !== false,
       position,
       shape,
       color,
       size: clampNumber(state.floatingButtonSize ?? state.size, FLOATING_SIZE_MIN, FLOATING_SIZE_MAX, DEFAULT_FLOATING_SETTINGS.floatingButtonSize),
-      collapsed: !!(state.floatingButtonCollapsed ?? state.collapsed),
+      collapsed: mode === "collapsed",
+      mode,
       customPosition: getFloatingCustomPosition(state.floatingButtonCustomPosition ?? state.customPosition),
       revision: Number(state.floatingStateRevision ?? state.revision) || 0
     };
@@ -392,10 +407,26 @@
   }
 
   function getFloatingBoxMetrics(settings = {}) {
-    const { size, collapsed, shape } = getFloatingSettings(settings);
+    const { size, collapsed, shape, mode } = getFloatingSettings(settings);
+    if (mode === "pins") {
+      const width = clampNumber(Math.round(size * 1.16), 46, 84, 54);
+      const heightForClamp = Math.min(
+        Math.max(180, window.innerHeight - 96),
+        Math.max(180, Math.min(420, window.innerHeight - 24))
+      );
+      return {
+        width,
+        hitWidth: Math.max(width, 72),
+        compactHeight: heightForClamp,
+        height: `min(420px, calc(100vh - 96px))`,
+        heightForClamp,
+        minHeight: "180px",
+        maxHeight: "min(420px, calc(100vh - 24px))"
+      };
+    }
     if (shape === "button" || shape === "diamond") {
       const diameter = collapsed
-        ? clampNumber(Math.round(size * 0.82), 34, 90, 40)
+        ? clampNumber(Math.round(size * 0.58), 24, 64, 28)
         : clampNumber(Math.round(size * 1.1), 42, 132, 52);
       return {
         width: diameter,
@@ -408,9 +439,11 @@
       };
     }
     if (shape === "tab") {
-      const width = clampNumber(Math.round(size * 1.1), 42, 132, 54);
+      const width = collapsed
+        ? clampNumber(Math.round(size * 0.72), 28, 78, 34)
+        : clampNumber(Math.round(size * 1.1), 42, 132, 54);
       const expandedHeight = clampNumber(Math.round(size * 3.1), 104, 340, 142);
-      const compactHeight = clampNumber(Math.round(size * 1.82), 58, 220, 84);
+      const compactHeight = clampNumber(Math.round(size * 0.9), 34, 108, 42);
       const visualHeight = collapsed ? compactHeight : expandedHeight;
       return {
         width,
@@ -422,9 +455,11 @@
         maxHeight: `${visualHeight}px`
       };
     }
-    const width = clampNumber(Math.round(size * 0.86), 32, 104, 40);
+    const width = collapsed
+      ? clampNumber(Math.round(size * 0.56), 24, 68, 26)
+      : clampNumber(Math.round(size * 0.86), 32, 104, 40);
     const hitWidth = Math.max(width, 72);
-    const compactHeight = clampNumber(Math.round(size * 1.82), 58, 220, 84);
+    const compactHeight = clampNumber(Math.round(size * 0.95), 36, 114, 44);
     const height = collapsed ? `${compactHeight}px` : "calc(100vh - 96px)";
     const heightForClamp = collapsed
       ? compactHeight
@@ -441,10 +476,11 @@
   }
 
   function isFloatingCompactPlacement(settings) {
-    return settings.collapsed || settings.shape !== "rail";
+    return settings.mode === "pins" || settings.collapsed || settings.shape !== "rail";
   }
 
   function getFloatingButtonRadius(settings) {
+    if (settings.mode === "pins") return "24px";
     if (settings.shape === "button") return "999px";
     if (settings.shape === "diamond") return "0";
     if (settings.shape === "tab") {
@@ -480,16 +516,316 @@
     };
   }
 
+  function getFloatingPinnedDockScheme(color) {
+    if (color === "light") {
+      return {
+        panelBg: "rgba(255, 255, 255, 0.82)",
+        panelBorder: "rgba(15, 23, 42, 0.18)",
+        panelShadow: "0 12px 30px rgba(15, 23, 42, 0.18)",
+        itemBg: "rgba(255, 255, 255, 0.72)",
+        itemHoverBg: "rgba(241, 245, 249, 0.96)",
+        itemBorder: "rgba(15, 23, 42, 0.14)",
+        itemHoverBorder: "rgba(37, 99, 235, 0.42)",
+        itemColor: "#1f2937",
+        mutedColor: "#64748b"
+      };
+    }
+    return {
+      panelBg: "rgba(15, 23, 42, 0.94)",
+      panelBorder: "rgba(148, 163, 184, 0.26)",
+      panelShadow: "0 14px 34px rgba(0, 0, 0, 0.24)",
+      itemBg: "rgba(30, 41, 59, 0.82)",
+      itemHoverBg: "rgba(51, 65, 85, 0.98)",
+      itemBorder: "rgba(148, 163, 184, 0.18)",
+      itemHoverBorder: "rgba(147, 197, 253, 0.48)",
+      itemColor: "#e5e7eb",
+      mutedColor: "#94a3b8"
+    };
+  }
+
+  function createFloatingPinnedDock(settings) {
+    const scheme = getFloatingPinnedDockScheme(settings.color);
+    const metrics = getFloatingBoxMetrics(settings);
+    const panel = document.createElement("div");
+    setImportantStyles(panel, {
+      all: "initial",
+      position: "absolute",
+      top: "0",
+      [getFloatingSide(settings.position)]: "0",
+      width: `${metrics.width}px`,
+      height: "100%",
+      display: "flex",
+      "flex-direction": "column",
+      gap: "6px",
+      "box-sizing": "border-box",
+      padding: "6px",
+      border: `1px solid ${scheme.panelBorder}`,
+      "border-radius": "24px",
+      background: scheme.panelBg,
+      "box-shadow": scheme.panelShadow,
+      "backdrop-filter": "blur(12px)",
+      "-webkit-backdrop-filter": "blur(12px)",
+      color: scheme.itemColor,
+      "pointer-events": "auto",
+      overflow: "hidden",
+      cursor: "default",
+      "user-select": "none",
+      "-webkit-user-select": "none"
+    });
+
+    const openAction = createFloatingPinnedAction({
+      kind: "open",
+      icon: "☰",
+      title: "Bookmark Shelf を開く",
+      scheme,
+      size: Math.max(34, metrics.width - 14)
+    });
+    const separator = document.createElement("div");
+    setImportantStyles(separator, {
+      all: "initial",
+      display: "block",
+      height: "1px",
+      margin: "0 5px",
+      background: scheme.panelBorder,
+      opacity: "0.9",
+      "flex-shrink": "0"
+    });
+    const list = document.createElement("div");
+    setImportantStyles(list, {
+      all: "initial",
+      display: "flex",
+      "flex-direction": "column",
+      gap: "6px",
+      "align-items": "center",
+      "box-sizing": "border-box",
+      overflow: "auto",
+      "scrollbar-width": "none",
+      "min-height": "0",
+      "padding-bottom": "1px"
+    });
+    list.addEventListener("wheel", (event) => {
+      event.stopPropagation();
+    }, { capture: true, passive: true });
+
+    panel.append(openAction.target, separator, list);
+    floatingPinnedDockState = {
+      panel,
+      list,
+      scheme,
+      openAction,
+      targets: [],
+      loading: true
+    };
+    renderFloatingPinnedStatus("…", "固定ブックマークを読み込み中");
+    return panel;
+  }
+
+  function createFloatingPinnedAction({ kind, icon, title, bookmark = null, scheme, size }) {
+    const target = document.createElement("button");
+    target.type = "button";
+    target.title = title;
+    target.setAttribute("aria-label", title);
+    target.dataset.kind = kind;
+    setImportantStyles(target, {
+      all: "initial",
+      width: `${size}px`,
+      height: `${size}px`,
+      display: "grid",
+      "place-items": "center",
+      "box-sizing": "border-box",
+      border: `1px solid ${scheme.itemBorder}`,
+      "border-radius": "999px",
+      background: scheme.itemBg,
+      color: scheme.itemColor,
+      cursor: "pointer",
+      padding: "0",
+      margin: "0",
+      overflow: "hidden",
+      "font-family": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      "font-size": "15px",
+      "font-weight": "400",
+      "line-height": "1",
+      "user-select": "none",
+      "-webkit-user-select": "none",
+      transition: "background-color 90ms ease, border-color 90ms ease, transform 90ms ease"
+    });
+    target.addEventListener("mouseenter", () => {
+      setImportantStyles(target, {
+        background: scheme.itemHoverBg,
+        border: `1px solid ${scheme.itemHoverBorder}`,
+        transform: "translateY(-1px)"
+      });
+    });
+    target.addEventListener("mouseleave", () => {
+      setImportantStyles(target, {
+        background: scheme.itemBg,
+        border: `1px solid ${scheme.itemBorder}`,
+        transform: "none"
+      });
+    });
+
+    if (bookmark?.url) {
+      const fallback = document.createElement("span");
+      fallback.textContent = getFloatingPinnedInitial(bookmark);
+      setImportantStyles(fallback, {
+        all: "initial",
+        display: "grid",
+        "place-items": "center",
+        width: "100%",
+        height: "100%",
+        color: scheme.itemColor,
+        "font-family": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "font-size": "13px",
+        "font-weight": "400",
+        "line-height": "1"
+      });
+      const img = document.createElement("img");
+      img.alt = "";
+      img.loading = "lazy";
+      img.src = getFloatingPinnedFaviconUrl(bookmark.url);
+      setImportantStyles(img, {
+        all: "initial",
+        display: "block",
+        width: "22px",
+        height: "22px",
+        "object-fit": "contain"
+      });
+      img.addEventListener("error", () => {
+        img.remove();
+        if (!target.contains(fallback)) target.append(fallback);
+      }, { once: true });
+      target.append(img);
+    } else {
+      const label = document.createElement("span");
+      label.textContent = icon;
+      setImportantStyles(label, {
+        all: "initial",
+        color: kind === "status" ? scheme.mutedColor : scheme.itemColor,
+        "font-family": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "font-size": kind === "open" ? "16px" : "14px",
+        "font-weight": "400",
+        "line-height": "1"
+      });
+      target.append(label);
+    }
+    return { kind, target, bookmark };
+  }
+
+  async function hydrateFloatingPinnedDock() {
+    if (!floatingPinnedDockState) return;
+    const requestId = ++floatingPinnedLoadRequestId;
+    const response = await chrome.runtime.sendMessage({
+      type: "get-bookmark-shelf-pinned-bookmarks"
+    }).catch(() => null);
+    if (requestId !== floatingPinnedLoadRequestId || !floatingPinnedDockState) return;
+    const bookmarks = Array.isArray(response?.bookmarks) ? response.bookmarks : [];
+    renderFloatingPinnedBookmarks(bookmarks);
+  }
+
+  function renderFloatingPinnedStatus(icon, title) {
+    if (!floatingPinnedDockState) return;
+    floatingPinnedDockState.list.replaceChildren();
+    const size = Math.max(34, getFloatingBoxMetrics(currentFloatingState).width - 14);
+    const status = createFloatingPinnedAction({
+      kind: "status",
+      icon,
+      title,
+      scheme: floatingPinnedDockState.scheme,
+      size
+    });
+    status.target.style.setProperty("cursor", "default", "important");
+    floatingPinnedDockState.targets = [];
+    floatingPinnedDockState.list.append(status.target);
+  }
+
+  function renderFloatingPinnedBookmarks(bookmarks) {
+    if (!floatingPinnedDockState) return;
+    const list = floatingPinnedDockState.list;
+    const scheme = floatingPinnedDockState.scheme;
+    const size = Math.max(34, getFloatingBoxMetrics(currentFloatingState).width - 14);
+    const items = bookmarks.slice(0, FLOATING_PIN_LIST_LIMIT);
+    list.replaceChildren();
+    floatingPinnedDockState.targets = [];
+
+    if (!items.length) {
+      renderFloatingPinnedStatus("☆", "固定ブックマークがありません");
+      return;
+    }
+
+    const targets = items.map((bookmark) => createFloatingPinnedAction({
+      kind: "bookmark",
+      title: bookmark.title || bookmark.url || "Bookmark",
+      bookmark,
+      scheme,
+      size
+    }));
+    targets.forEach((target) => list.append(target.target));
+    floatingPinnedDockState.targets = targets;
+
+    if (bookmarks.length > items.length) {
+      const more = createFloatingPinnedAction({
+        kind: "open",
+        icon: `+${bookmarks.length - items.length}`,
+        title: "残りの固定ブックマークを Bookmark Shelf で開く",
+        scheme,
+        size
+      });
+      list.append(more.target);
+      floatingPinnedDockState.targets.push(more);
+    }
+  }
+
+  function getFloatingPinnedActionAt(clientX, clientY) {
+    if (!floatingPinnedDockState || !Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+    const candidates = [floatingPinnedDockState.openAction, ...floatingPinnedDockState.targets];
+    return candidates.find((candidate) => {
+      const rect = candidate.target.getBoundingClientRect();
+      return clientX >= rect.left - 3
+        && clientX <= rect.right + 3
+        && clientY >= rect.top - 3
+        && clientY <= rect.bottom + 3;
+    }) || null;
+  }
+
+  async function openFloatingPinnedBookmark(bookmark, event) {
+    if (!bookmark?.url) return;
+    const response = await chrome.runtime.sendMessage({
+      type: "open-bookmark-shelf-pinned-bookmark",
+      bookmarkId: bookmark.id,
+      url: bookmark.url,
+      openInNewTab: !!(event?.ctrlKey || event?.metaKey || event?.shiftKey)
+    }).catch(() => null);
+    if (!response?.ok) {
+      window.location.href = bookmark.url;
+    }
+  }
+
+  function getFloatingPinnedFaviconUrl(url) {
+    return `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${encodeURIComponent(url)}&size=64`;
+  }
+
+  function getFloatingPinnedInitial(bookmark) {
+    const title = String(bookmark?.title || "").trim();
+    if (title) return title.slice(0, 1).toUpperCase();
+    try {
+      return new URL(bookmark?.url || "").hostname.slice(0, 1).toUpperCase() || "•";
+    } catch {
+      return "•";
+    }
+  }
+
   function applyFloatingCollapsedInPlace(collapsed) {
     const host = getFloatingLauncher();
     if (!host) return false;
     const nextState = {
       ...currentFloatingState,
-      floatingButtonCollapsed: collapsed
+      floatingButtonCollapsed: collapsed,
+      floatingButtonMode: collapsed ? "collapsed" : "pins"
     };
     const settings = getFloatingSettings(nextState);
     const metrics = getFloatingBoxMetrics(nextState);
     host.dataset.collapsed = collapsed ? "true" : "false";
+    host.dataset.mode = settings.mode;
     host.dataset.shape = settings.shape;
     host.dataset.color = settings.color;
     setImportantStyles(host, {
@@ -510,11 +846,12 @@
     if (getFloatingLauncher()) return;
 
     const floatingSettings = getFloatingSettings(settings);
-    const { position, collapsed, customPosition } = floatingSettings;
+    const { position, collapsed, customPosition, mode } = floatingSettings;
     const { width, hitWidth, height, heightForClamp, minHeight, maxHeight } = getFloatingBoxMetrics(floatingSettings);
     const host = document.createElement("div");
     host.id = FLOATING_ID;
     host.dataset.collapsed = collapsed ? "true" : "false";
+    host.dataset.mode = mode;
     host.dataset.shape = floatingSettings.shape;
     host.dataset.color = floatingSettings.color;
     host.dataset.dragging = "false";
@@ -545,10 +882,20 @@
     host.addEventListener("click", handleFloatingClick, CAPTURE_ACTIVE);
 
     const shadow = host.attachShadow({ mode: "closed" });
+    if (mode === "pins") {
+      const panel = createFloatingPinnedDock(floatingSettings);
+      shadow.append(panel);
+      document.documentElement.append(host);
+      hydrateFloatingPinnedDock().catch(() => {
+        renderFloatingPinnedStatus("!", "固定ブックマークを読み込めませんでした");
+      });
+      return;
+    }
+
     const button = document.createElement("div");
     const colorScheme = getFloatingColorScheme(floatingSettings.color);
-    const toggleHint = collapsed ? "右クリックで元に戻す" : "右クリックで縮小";
-    button.title = `Bookmark Shelf - 左クリックで開く / 右クリックで縮小切り替え / ドラッグで移動・ブラウザー操作`;
+    const toggleHint = "右クリックで固定一覧に切り替え";
+    button.title = `Bookmark Shelf - 左クリックで開く / 右クリックで最小表示・固定一覧を切り替え / ドラッグで移動・ブラウザー操作`;
     button.setAttribute("role", "button");
     button.setAttribute("tabindex", "0");
     button.setAttribute("aria-label", `Bookmark Shelf を開く。${toggleHint}。ドラッグで位置移動、戻る、進む、再読み込みができます。`);
@@ -747,6 +1094,16 @@
       suppressNextFloatingClick = false;
       return;
     }
+    const settings = getFloatingSettings(currentFloatingState);
+    if (settings.mode === "pins") {
+      const action = getFloatingPinnedActionAt(event.clientX, event.clientY);
+      if (action?.kind === "bookmark") {
+        openFloatingPinnedBookmark(action.bookmark, event).catch(() => {});
+        return;
+      }
+      toggleOverlay();
+      return;
+    }
     const host = getFloatingLauncher();
     if (host && isFloatingCollapseClick(event, host)) {
       toggleFloatingCollapsedFromDom();
@@ -757,14 +1114,14 @@
 
   function toggleFloatingCollapsedFromDom() {
     const launcher = getFloatingLauncher();
-    toggleFloatingCollapsed(launcher?.dataset.collapsed === "true", "dom");
+    setFloatingDisplayMode(launcher?.dataset.collapsed === "true" ? "pins" : "collapsed", "dom");
   }
 
   function handleFloatingSecondaryToggle(event) {
     rememberFloatingContextMenuSuppression(event);
     stopFloatingEvent(event);
     clearFloatingSecondaryFallback();
-    toggleFloatingCollapsed(getFloatingLauncher()?.dataset.collapsed === "true", event.type);
+    cycleFloatingDisplayMode(event.type);
   }
 
   function scheduleFloatingSecondaryToggle(event, source) {
@@ -773,7 +1130,7 @@
     clearFloatingSecondaryFallback();
     floatingSecondaryFallbackTimer = setTimeout(() => {
       floatingSecondaryFallbackTimer = 0;
-      toggleFloatingCollapsed(getFloatingLauncher()?.dataset.collapsed === "true", `${source}:fallback`);
+      cycleFloatingDisplayMode(`${source}:fallback`);
     }, 120);
   }
 
@@ -804,26 +1161,33 @@
   }
 
   function toggleFloatingCollapsed(collapsed, source = "", options = {}) {
+    setFloatingDisplayMode(collapsed ? "collapsed" : "pins", source, options);
+  }
+
+  function cycleFloatingDisplayMode(source = "", options = {}) {
+    const mode = getFloatingSettings(currentFloatingState).mode;
+    const nextMode = mode === "collapsed" ? "pins" : "collapsed";
+    setFloatingDisplayMode(nextMode, source, options);
+  }
+
+  function setFloatingDisplayMode(mode, source = "", options = {}) {
     const now = Date.now();
     if (!options.bypassDebounce && now - lastFloatingContextToggleAt < FLOATING_TOGGLE_DEBOUNCE_MS) {
       return;
     }
     lastFloatingContextToggleAt = now;
-    const nextCollapsed = !collapsed;
+    const nextMode = FLOATING_DISPLAY_MODES.has(mode) ? mode : "pins";
+    const nextCollapsed = nextMode === "collapsed";
     const revision = Date.now();
     currentFloatingState = {
       ...currentFloatingState,
       floatingButtonCollapsed: nextCollapsed,
+      floatingButtonMode: nextMode,
       floatingStateRevision: revision
     };
-    const settings = getFloatingSettings(currentFloatingState);
-    if (settings.shape === "button" || settings.shape === "diamond") {
-      removeFloatingLauncher();
-      createFloatingLauncher(settings);
-    } else {
-      applyFloatingCollapsedInPlace(nextCollapsed);
-    }
-    setFloatingCollapsed(nextCollapsed, revision, { apply: false }).catch(() => {});
+    removeFloatingLauncher();
+    createFloatingLauncher(currentFloatingState);
+    setFloatingMode(nextMode, revision, { apply: false }).catch(() => {});
   }
 
   function isFloatingCollapseClick(event, element) {
@@ -859,9 +1223,11 @@
       && event.clientY <= rect.bottom + FLOATING_HIT_SLOP_PX;
   }
 
-  async function setFloatingCollapsed(collapsed, revision = Date.now(), options = {}) {
+  async function setFloatingMode(mode, revision = Date.now(), options = {}) {
+    const nextMode = FLOATING_DISPLAY_MODES.has(mode) ? mode : "pins";
     await setFloatingStatePatch({
-      floatingButtonCollapsed: collapsed,
+      floatingButtonMode: nextMode,
+      floatingButtonCollapsed: nextMode === "collapsed",
       floatingStateRevision: revision
     }, options);
   }

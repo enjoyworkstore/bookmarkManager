@@ -49,6 +49,7 @@
   "web_accessible_resources": [
     {
       "resources": [
+        "_favicon/*",
         "launcher.html",
         "src/surface.js",
         "src/app.js",
