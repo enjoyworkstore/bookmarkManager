@@ -77,6 +77,149 @@ const FLOATING_BUTTON_COLORS = new Set(["dark", "light"]);
 const FLOATING_BUTTON_MODES = new Set(["collapsed", "pins"]);
 const FLOATING_BUTTON_SIZE_MIN = 34;
 const FLOATING_BUTTON_SIZE_MAX = 120;
+const CLASSIFICATION_FETCH_TIMEOUT_MS = 7000;
+const CLASSIFICATION_MAX_HTML_BYTES = 384 * 1024;
+const CLASSIFICATION_MIN_SCORE = 22;
+const CATEGORY_CLASSIFICATION_RULES = [
+  {
+    category: "開発",
+    domains: ["github.com", "gitlab.com", "stackoverflow.com", "stackexchange.com", "npmjs.com", "developer.mozilla.org", "vercel.com", "cloudflare.com"],
+    urlPatterns: ["/docs/", "/developer/", "/api/", "/reference/", "/repository/"],
+    keywords: ["プログラミング", "開発", "ソースコード", "リポジトリ", "developer", "programming", "javascript", "typescript", "python", "react", "github", "api reference"]
+  },
+  {
+    category: "AI",
+    domains: ["openai.com", "chatgpt.com", "anthropic.com", "claude.ai", "gemini.google.com", "perplexity.ai", "huggingface.co", "replicate.com"],
+    urlPatterns: ["/ai/", "/machine-learning/", "/models/", "/prompts/"],
+    keywords: ["生成ai", "人工知能", "機械学習", "大規模言語モデル", "プロンプト", "generative ai", "artificial intelligence", "machine learning", "large language model", "llm", "chatgpt", "claude"]
+  },
+  {
+    category: "仕事",
+    domains: ["slack.com", "notion.so", "atlassian.com", "trello.com", "asana.com", "teams.microsoft.com", "office.com", "sharepoint.com"],
+    urlPatterns: ["/workspace/", "/project/", "/tasks/", "/dashboard/"],
+    keywords: ["業務", "仕事", "会議", "タスク管理", "プロジェクト管理", "workspace", "project management", "business", "meeting", "productivity"]
+  },
+  {
+    category: "資料",
+    domains: ["wikipedia.org", "docs.google.com", "readthedocs.io", "learn.microsoft.com", "support.google.com"],
+    urlPatterns: ["/docs/", "/documentation/", "/manual/", "/reference/", "/help/", "/guide/"],
+    keywords: ["資料", "解説", "ガイド", "マニュアル", "リファレンス", "ドキュメント", "documentation", "reference", "manual", "guide", "tutorial", "how to"]
+  },
+  {
+    category: "動画",
+    domains: ["youtube.com", "youtu.be", "vimeo.com", "nicovideo.jp", "twitch.tv", "dailymotion.com"],
+    urlPatterns: ["/watch", "/video/", "/videos/", "/shorts/", "/live/"],
+    keywords: ["動画", "ライブ配信", "チャンネル", "視聴", "video", "watch", "stream", "channel"]
+  },
+  {
+    category: "音楽",
+    domains: ["open.spotify.com", "music.apple.com", "music.youtube.com", "soundcloud.com", "bandcamp.com", "music.amazon.co.jp", "deezer.com"],
+    urlPatterns: ["/music/", "/album/", "/artist/", "/track/", "/playlist/", "/song/"],
+    keywords: ["音楽", "楽曲", "アルバム", "アーティスト", "プレイリスト", "music", "song", "album", "artist", "playlist", "listen"]
+  },
+  {
+    category: "買い物",
+    domains: ["amazon.co.jp", "amazon.com", "rakuten.co.jp", "shopping.yahoo.co.jp", "mercari.com", "stores.jp", "zozo.jp"],
+    urlPatterns: ["/product/", "/products/", "/item/", "/shop/", "/cart/"],
+    keywords: ["買い物", "商品", "価格", "購入", "通販", "在庫", "product", "shopping", "price", "buy", "store", "cart"]
+  },
+  {
+    category: "ニュース",
+    domains: ["nikkei.com", "bbc.com", "cnn.com", "reuters.com", "asahi.com", "yomiuri.co.jp", "mainichi.jp", "nhk.or.jp"],
+    urlPatterns: ["/news/", "/article/", "/articles/", "/press/"],
+    keywords: ["ニュース", "速報", "報道", "記者", "news", "breaking", "report", "press release"]
+  },
+  {
+    category: "SNS",
+    domains: ["x.com", "twitter.com", "facebook.com", "instagram.com", "linkedin.com", "bsky.app", "threads.net", "mastodon.social"],
+    urlPatterns: ["/status/", "/profile/", "/posts/", "/post/"],
+    keywords: ["sns", "ソーシャル", "投稿", "フォロー", "social network", "profile", "followers"]
+  },
+  {
+    category: "画像",
+    domains: ["pinterest.com", "unsplash.com", "pixabay.com", "pexels.com", "flickr.com"],
+    urlPatterns: ["/image/", "/images/", "/photo/", "/photos/", "/gallery/"],
+    keywords: ["画像", "写真", "フォト", "ギャラリー", "image", "photo", "gallery", "wallpaper"]
+  },
+  {
+    category: "漫画",
+    domains: ["comic-walker.com", "shonenjumpplus.com", "manga.nicovideo.jp", "web-ace.jp"],
+    urlPatterns: ["/manga/", "/comic/", "/episode/"],
+    keywords: ["漫画", "マンガ", "コミック", "comic", "manga"]
+  },
+  {
+    category: "ゲーム",
+    domains: ["store.steampowered.com", "epicgames.com", "nintendo.com", "playstation.com", "xbox.com", "ign.com", "gamespot.com"],
+    urlPatterns: ["/game/", "/games/", "/gaming/", "/app/"],
+    keywords: ["ゲーム", "攻略", "プレイ", "game", "gaming", "walkthrough", "steam", "nintendo", "playstation", "xbox"]
+  },
+  {
+    category: "学習",
+    domains: ["coursera.org", "udemy.com", "edx.org", "khanacademy.org", "duolingo.com", "quizlet.com"],
+    urlPatterns: ["/course/", "/courses/", "/learn/", "/lesson/", "/study/"],
+    keywords: ["学習", "勉強", "講座", "授業", "資格", "learning", "course", "lesson", "study", "education", "training"]
+  },
+  {
+    category: "旅行",
+    domains: ["booking.com", "airbnb.com", "tripadvisor.com", "jalan.net", "travel.rakuten.co.jp", "expedia.co.jp"],
+    urlPatterns: ["/travel/", "/hotel/", "/hotels/", "/flight/", "/tour/"],
+    keywords: ["旅行", "観光", "ホテル", "航空券", "旅館", "travel", "trip", "hotel", "flight", "tourism", "booking"]
+  },
+  {
+    category: "金融",
+    domains: ["finance.yahoo.co.jp", "bloomberg.com", "kabutan.jp", "minkabu.jp", "coinmarketcap.com", "tradingview.com"],
+    urlPatterns: ["/finance/", "/markets/", "/stocks/", "/crypto/", "/investment/"],
+    keywords: ["金融", "投資", "株価", "為替", "仮想通貨", "finance", "investment", "stock", "market", "crypto", "trading"]
+  },
+  {
+    category: "健康",
+    domains: ["mhlw.go.jp", "who.int", "mayoclinic.org", "medicalnote.jp", "healthline.com"],
+    urlPatterns: ["/health/", "/medical/", "/medicine/", "/fitness/"],
+    keywords: ["健康", "医療", "病気", "薬", "運動", "health", "medical", "medicine", "fitness", "wellness"]
+  },
+  {
+    category: "料理",
+    domains: ["cookpad.com", "kurashiru.com", "delishkitchen.tv", "allrecipes.com", "food.com"],
+    urlPatterns: ["/recipe/", "/recipes/", "/cooking/", "/food/"],
+    keywords: ["料理", "レシピ", "献立", "食材", "recipe", "cooking", "food", "ingredients", "meal"]
+  },
+  {
+    category: "スポーツ",
+    domains: ["sports.yahoo.co.jp", "espn.com", "nfl.com", "nba.com", "mlb.com", "jleague.jp"],
+    urlPatterns: ["/sports/", "/soccer/", "/baseball/", "/football/", "/basketball/"],
+    keywords: ["スポーツ", "試合", "サッカー", "野球", "sports", "soccer", "baseball", "football", "basketball"]
+  },
+  {
+    category: "本・読書",
+    domains: ["bookmeter.com", "goodreads.com", "ndl.go.jp", "honto.jp", "books.google.com"],
+    urlPatterns: ["/book/", "/books/", "/novel/", "/reading/"],
+    keywords: ["読書", "書籍", "本", "小説", "book", "books", "reading", "novel", "author"]
+  },
+  {
+    category: "ツール",
+    domains: ["canva.com", "figma.com", "miro.com", "codepen.io", "jsfiddle.net"],
+    urlPatterns: ["/tools/", "/tool/", "/editor/", "/generator/", "/converter/"],
+    keywords: ["ツール", "変換", "生成器", "エディタ", "tool", "converter", "generator", "editor", "utility"]
+  },
+  {
+    category: "音楽素材",
+    domains: ["dova-s.jp", "musmus.main.jp", "freesound.org"],
+    urlPatterns: ["/audio/", "/music/", "/sound/", "/bgm/"],
+    keywords: ["音楽素材", "bgm", "効果音", "フリー音源", "audio", "music", "sound effect", "royalty free"]
+  },
+  {
+    category: "絵素材",
+    domains: ["irasutoya.com", "ac-illust.com", "freepik.com", "flaticon.com"],
+    urlPatterns: ["/illustration/", "/illustrations/", "/vector/", "/icons/"],
+    keywords: ["イラスト", "絵素材", "ベクター", "アイコン素材", "illustration", "vector", "clipart", "icon"]
+  },
+  {
+    category: "クラウドストレージ",
+    domains: ["drive.google.com", "dropbox.com", "onedrive.live.com", "box.com", "mega.nz"],
+    urlPatterns: ["/drive/", "/storage/", "/files/", "/folders/"],
+    keywords: ["クラウドストレージ", "オンラインストレージ", "ファイル共有", "cloud storage", "file sharing", "drive"]
+  }
+];
 const FLOATING_BUTTON_POSITION_LABELS = {
   ja: {
     "right-center": "右中央",
@@ -143,9 +286,24 @@ const CATEGORY_DISPLAY_LABELS = {
   "仕事": { en: "Work" },
   "資料": { en: "Reference" },
   "動画": { en: "Video" },
+  "音楽": { en: "Music" },
   "買い物": { en: "Shopping" },
   "ニュース": { en: "News" },
   "SNS": { en: "Social" },
+  "画像": { en: "Images" },
+  "漫画": { en: "Manga" },
+  "ゲーム": { en: "Games" },
+  "学習": { en: "Learning" },
+  "旅行": { en: "Travel" },
+  "金融": { en: "Finance" },
+  "健康": { en: "Health" },
+  "料理": { en: "Cooking" },
+  "スポーツ": { en: "Sports" },
+  "本・読書": { en: "Books" },
+  "ツール": { en: "Tools" },
+  "音楽素材": { en: "Music assets" },
+  "絵素材": { en: "Illustration assets" },
+  "クラウドストレージ": { en: "Cloud storage" },
   "あとで読む": { en: "Read later" }
 };
 const UI_TEXT = {
@@ -155,7 +313,7 @@ const UI_TEXT = {
     batchMode: "一括選択モード",
     trayMode: "未整理トレイ",
     trayLabel: "未整理トレイ",
-    organizeSession: "整理セッション",
+    organizeSession: "分類候補を確認",
     domainMove: "ドメイン別まとめ移動",
     undoDefault: "操作取り消し",
     deleteMode: "削除モード",
@@ -232,7 +390,20 @@ const UI_TEXT = {
     floatingButtonColor: "起動バー色",
     floatingButtonSize: "フローティングボタンサイズ",
     overlayOpacity: "パネル・カード・入力欄の不透明度",
-    organizeHeading: "整理セッション",
+    organizeHeading: "ブックマーク分類",
+    classificationLoading: "ページ情報を取得して分類候補を計算しています…",
+    classificationSuggestion: ({ category, confidence }) => `おすすめ: ${category}（信頼度 ${confidence}%）`,
+    classificationPreliminary: "ルールによる暫定候補です。ページ情報の取得後に更新されます。",
+    classificationNoSuggestion: "確度の高い候補を作れませんでした。ジャンルを選んで確定してください。",
+    classificationPageUnavailable: "ページ情報を取得できなかったため、ブックマーク情報とルールで判定しました。",
+    classificationReasonDomain: ({ detail }) => `ドメインルール: ${detail}`,
+    classificationReasonDomainHistory: ({ detail }) => `同じドメインの分類実績: ${detail}`,
+    classificationReasonFolder: ({ detail }) => `フォルダ情報: ${detail}`,
+    classificationReasonTitle: ({ detail }) => `タイトルの特徴: ${detail}`,
+    classificationReasonPage: ({ detail }) => `ページ内容の特徴: ${detail}`,
+    classificationReasonUrl: ({ detail }) => `URLの特徴: ${detail}`,
+    classificationReasonCurrent: ({ detail }) => `現在のジャンル: ${detail}`,
+    classificationPageSource: ({ detail }) => `ページ情報: ${detail}`,
     open: "開く",
     next: "次へ",
     domainMoveHeading: "ドメイン別まとめ移動",
@@ -280,9 +451,9 @@ const UI_TEXT = {
     noDomainGroups: "現在の表示内にまとめ移動できるドメインはありません。",
     selectDomain: "このドメインを選択",
     moveDomain: "このドメインをまとめて移動",
-    noOrganize: "整理できるブックマークがありません。",
-    organizeDone: "整理セッションは完了です。",
-    noOrganizeItems: "処理するブックマークがなくなりました。",
+    noOrganize: "分類を確認できるブックマークがありません。",
+    organizeDone: "分類確認は完了です。",
+    noOrganizeItems: "確認するブックマークがなくなりました。",
     deleteGenreConfirm: ({ name }) => `ジャンル「${name}」を削除して、含まれるブックマークを未分類へ移しますか？`
   },
   en: {
@@ -291,7 +462,7 @@ const UI_TEXT = {
     batchMode: "Batch select mode",
     trayMode: "Cleanup tray",
     trayLabel: "Cleanup tray",
-    organizeSession: "Organize session",
+    organizeSession: "Review classification",
     domainMove: "Move by domain",
     undoDefault: "Undo last action",
     deleteMode: "Delete mode",
@@ -368,7 +539,20 @@ const UI_TEXT = {
     floatingButtonColor: "Launcher bar color",
     floatingButtonSize: "Floating button size",
     overlayOpacity: "Panel, card, and control opacity",
-    organizeHeading: "Organize session",
+    organizeHeading: "Bookmark classification",
+    classificationLoading: "Fetching page details and calculating a classification suggestion…",
+    classificationSuggestion: ({ category, confidence }) => `Recommended: ${category} (${confidence}% confidence)`,
+    classificationPreliminary: "This is a preliminary rule-based suggestion. It will update after page details are loaded.",
+    classificationNoSuggestion: "No high-confidence suggestion was found. Choose a genre to confirm it.",
+    classificationPageUnavailable: "Page details were unavailable, so the result uses bookmark data and rules only.",
+    classificationReasonDomain: ({ detail }) => `Domain rule: ${detail}`,
+    classificationReasonDomainHistory: ({ detail }) => `Existing classifications on this domain: ${detail}`,
+    classificationReasonFolder: ({ detail }) => `Folder signal: ${detail}`,
+    classificationReasonTitle: ({ detail }) => `Title signal: ${detail}`,
+    classificationReasonPage: ({ detail }) => `Page-content signal: ${detail}`,
+    classificationReasonUrl: ({ detail }) => `URL signal: ${detail}`,
+    classificationReasonCurrent: ({ detail }) => `Current genre: ${detail}`,
+    classificationPageSource: ({ detail }) => `Page details: ${detail}`,
     open: "Open",
     next: "Next",
     domainMoveHeading: "Move by domain",
@@ -416,9 +600,9 @@ const UI_TEXT = {
     noDomainGroups: "There are no domains to move together in the current view.",
     selectDomain: "Select this domain",
     moveDomain: "Move this domain together",
-    noOrganize: "There are no bookmarks to organize.",
-    organizeDone: "The organize session is complete.",
-    noOrganizeItems: "There are no bookmarks left to process.",
+    noOrganize: "There are no bookmarks to classify.",
+    organizeDone: "Classification review is complete.",
+    noOrganizeItems: "There are no bookmarks left to review.",
     deleteGenreConfirm: ({ name }) => `Delete genre "${name}" and move its bookmarks to Uncategorized?`
   }
 };
@@ -479,6 +663,7 @@ const elements = {
   organizeDialog: document.querySelector("#organizeDialog"),
   organizeProgress: document.querySelector("#organizeProgress"),
   organizeCard: document.querySelector("#organizeCard"),
+  organizeSuggestion: document.querySelector("#organizeSuggestion"),
   organizeCategoryList: document.querySelector("#organizeCategoryList"),
   organizeDeleteButton: document.querySelector("#organizeDeleteButton"),
   organizeOpenButton: document.querySelector("#organizeOpenButton"),
@@ -520,6 +705,9 @@ let selectedIds = new Set();
 let undoEntry = null;
 let organizeQueue = [];
 let organizeIndex = 0;
+let organizeClassificationRenderToken = 0;
+let classificationPageInfoCache = new Map();
+let classificationResultCache = new Map();
 let duplicateUrlSet = new Set();
 let linkStatuses = new Map();
 let linkCheckRunning = false;
@@ -1350,6 +1538,7 @@ function resetBookmarkDerivedCaches() {
   bookmarksRevision += 1;
   hostCache = new Map();
   normalizedUrlCache = new Map();
+  classificationResultCache.clear();
   clearRenderDataCache();
 }
 
@@ -3184,6 +3373,318 @@ function getDomainCategorySuggestion(host, items, categoryNames) {
   return "";
 }
 
+function getClassificationPageInfoEntry(url) {
+  const normalizedUrl = String(url || "").trim();
+  if (!/^https?:\/\//i.test(normalizedUrl)) {
+    return {
+      status: "done",
+      value: { ok: false, reason: "unsupported", finalUrl: normalizedUrl },
+      promise: Promise.resolve({ ok: false, reason: "unsupported", finalUrl: normalizedUrl })
+    };
+  }
+  const cached = classificationPageInfoCache.get(normalizedUrl);
+  if (cached) return cached;
+
+  const entry = { status: "loading", value: null, promise: null };
+  entry.promise = fetchClassificationPageInfo(normalizedUrl)
+    .catch((error) => ({
+      ok: false,
+      reason: error?.name === "AbortError" ? "timeout" : "unavailable",
+      finalUrl: normalizedUrl
+    }))
+    .then((value) => {
+      entry.status = "done";
+      entry.value = value;
+      return value;
+    });
+  classificationPageInfoCache.set(normalizedUrl, entry);
+  return entry;
+}
+
+async function fetchClassificationPageInfo(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CLASSIFICATION_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      cache: "force-cache",
+      credentials: "omit",
+      headers: { Accept: "text/html,application/xhtml+xml" },
+      signal: controller.signal
+    });
+    const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+    if (!response.ok || (contentType && !contentType.includes("html") && !contentType.includes("xhtml"))) {
+      return {
+        ok: false,
+        reason: response.ok ? "not-html" : `http-${response.status}`,
+        finalUrl: response.url || url
+      };
+    }
+    const html = await readLimitedResponseText(response, CLASSIFICATION_MAX_HTML_BYTES);
+    return extractClassificationPageInfo(html, response.url || url);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function readLimitedResponseText(response, maxBytes) {
+  if (!response.body?.getReader) {
+    return (await response.text()).slice(0, maxBytes);
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const parts = [];
+  let received = 0;
+  try {
+    while (received < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const remaining = maxBytes - received;
+      const chunk = value.byteLength > remaining ? value.subarray(0, remaining) : value;
+      received += chunk.byteLength;
+      parts.push(decoder.decode(chunk, { stream: true }));
+      if (chunk.byteLength < value.byteLength) break;
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+  parts.push(decoder.decode());
+  return parts.join("");
+}
+
+function extractClassificationPageInfo(html, finalUrl) {
+  const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+  const meta = new Map();
+  doc.querySelectorAll("meta").forEach((node) => {
+    const key = String(node.getAttribute("name") || node.getAttribute("property") || "").trim().toLowerCase();
+    const content = compactClassificationText(node.getAttribute("content"), 700);
+    if (key && content && !meta.has(key)) meta.set(key, content);
+  });
+  doc.querySelectorAll("script, style, noscript, template, svg").forEach((node) => node.remove());
+  const headings = [...doc.querySelectorAll("h1")]
+    .map((node) => compactClassificationText(node.textContent, 240))
+    .filter(Boolean)
+    .slice(0, 2);
+  const title = compactClassificationText(meta.get("og:title") || doc.title, 300);
+  const description = compactClassificationText(
+    meta.get("description") || meta.get("og:description") || meta.get("twitter:description"),
+    900
+  );
+  const keywords = compactClassificationText(meta.get("keywords"), 600);
+  const section = compactClassificationText(meta.get("article:section"), 180);
+  const text = compactClassificationText(doc.body?.textContent, 2400);
+  return {
+    ok: true,
+    finalUrl,
+    title,
+    description,
+    keywords,
+    section,
+    headings,
+    text
+  };
+}
+
+function compactClassificationText(value, maxLength = 1000) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function normalizeClassificationText(value) {
+  return compactClassificationText(value, 12000).normalize("NFKC").toLowerCase();
+}
+
+function classificationTextIncludes(text, signal) {
+  const normalizedSignal = normalizeClassificationText(signal);
+  if (!normalizedSignal) return false;
+  if (/^[a-z0-9+#. -]+$/.test(normalizedSignal) && normalizedSignal.length <= 3) {
+    const escaped = normalizedSignal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(text);
+  }
+  return text.includes(normalizedSignal);
+}
+
+function classificationDomainMatches(host, pattern) {
+  const normalizedHost = String(host || "").toLowerCase().replace(/^www\./, "");
+  const normalizedPattern = String(pattern || "").toLowerCase().replace(/^www\./, "");
+  return normalizedHost === normalizedPattern || normalizedHost.endsWith(`.${normalizedPattern}`);
+}
+
+function addClassificationScore(scoreMap, category, points, reasonKey, detail) {
+  const score = scoreMap.get(category);
+  if (!score || !Number.isFinite(points) || points <= 0) return;
+  score.score += points;
+  const reasonId = `${reasonKey}:${detail}`;
+  if (!score.reasonIds.has(reasonId)) {
+    score.reasonIds.add(reasonId);
+    score.reasons.push({ key: reasonKey, detail, weight: points });
+  }
+}
+
+function getClassificationHistorySignal(bookmark, field, categoryNames) {
+  const value = bookmark[field];
+  if (!value) return null;
+  const counts = new Map();
+  bookmarks.forEach((candidate) => {
+    if (candidate.id === bookmark.id || candidate[field] !== value || candidate.category === "未分類") return;
+    if (!categoryNames.includes(candidate.category)) return;
+    counts.set(candidate.category, (counts.get(candidate.category) || 0) + 1);
+  });
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  if (!sorted.length) return null;
+  const total = sorted.reduce((sum, [, count]) => sum + count, 0);
+  const [category, count] = sorted[0];
+  const ratio = count / Math.max(1, total);
+  if (ratio < 0.6) return null;
+  return { category, count, total, ratio };
+}
+
+function classifyBookmark(bookmark, pageInfo = null) {
+  const categoryNames = [...new Set([
+    ...getCategoryNames(),
+    ...CATEGORY_CLASSIFICATION_RULES.map((rule) => rule.category)
+  ])].filter((name) => name && name !== "未分類");
+  const scoreMap = new Map(categoryNames.map((category) => [category, {
+    category,
+    score: 0,
+    reasons: [],
+    reasonIds: new Set()
+  }]));
+  let parsedUrl = null;
+  try {
+    parsedUrl = new URL(pageInfo?.finalUrl || bookmark.url);
+  } catch {
+    // Invalid URLs can still be classified from title and folder signals.
+  }
+  const host = parsedUrl?.hostname?.replace(/^www\./, "") || safeHost(bookmark.url);
+  const normalizedUrl = normalizeClassificationText(pageInfo?.finalUrl || bookmark.url);
+  const titleText = normalizeClassificationText([
+    bookmark.title,
+    pageInfo?.title,
+    ...(pageInfo?.headings || [])
+  ].join(" "));
+  const pageText = normalizeClassificationText([
+    pageInfo?.description,
+    pageInfo?.keywords,
+    pageInfo?.section,
+    pageInfo?.text
+  ].join(" "));
+  const folderText = normalizeClassificationText(bookmark.folderPath);
+
+  CATEGORY_CLASSIFICATION_RULES.forEach((rule) => {
+    if (!scoreMap.has(rule.category)) return;
+    const domainMatch = rule.domains.find((pattern) => classificationDomainMatches(host, pattern));
+    if (domainMatch) {
+      const normalizedHost = String(host || "").toLowerCase().replace(/^www\./, "");
+      const normalizedDomain = String(domainMatch || "").toLowerCase().replace(/^www\./, "");
+      const domainPoints = normalizedHost === normalizedDomain ? 84 : 70;
+      addClassificationScore(scoreMap, rule.category, domainPoints, "classificationReasonDomain", domainMatch);
+    }
+    const urlMatches = rule.urlPatterns.filter((pattern) => normalizedUrl.includes(normalizeClassificationText(pattern))).slice(0, 2);
+    if (urlMatches.length) {
+      addClassificationScore(scoreMap, rule.category, 20 + ((urlMatches.length - 1) * 7), "classificationReasonUrl", urlMatches.join(" / "));
+    }
+    const titleMatches = rule.keywords.filter((keyword) => classificationTextIncludes(titleText, keyword)).slice(0, 3);
+    if (titleMatches.length) {
+      addClassificationScore(scoreMap, rule.category, 18 + ((titleMatches.length - 1) * 8), "classificationReasonTitle", titleMatches.join(" / "));
+    }
+    const pageMatches = rule.keywords.filter((keyword) => classificationTextIncludes(pageText, keyword)).slice(0, 4);
+    if (pageMatches.length) {
+      addClassificationScore(scoreMap, rule.category, 12 + ((pageMatches.length - 1) * 5), "classificationReasonPage", pageMatches.join(" / "));
+    }
+  });
+
+  categoryNames.forEach((category) => {
+    const categorySignals = [category, displayCategoryName(category)]
+      .map(normalizeClassificationText)
+      .filter((signal, index, values) => signal && values.indexOf(signal) === index);
+    const folderMatch = categorySignals.find((signal) => classificationTextIncludes(folderText, signal));
+    if (folderMatch) {
+      addClassificationScore(scoreMap, category, 58, "classificationReasonFolder", bookmark.folderPath || category);
+    }
+    const titleMatch = categorySignals.find((signal) => classificationTextIncludes(titleText, signal));
+    if (titleMatch) {
+      addClassificationScore(scoreMap, category, 20, "classificationReasonTitle", category);
+    }
+  });
+
+  if (host) {
+    const counts = new Map();
+    bookmarks.forEach((candidate) => {
+      if (candidate.id === bookmark.id || candidate.category === "未分類" || safeHost(candidate.url) !== host) return;
+      if (!categoryNames.includes(candidate.category)) return;
+      counts.set(candidate.category, (counts.get(candidate.category) || 0) + 1);
+    });
+    const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    const total = sorted.reduce((sum, [, count]) => sum + count, 0);
+    if (sorted.length && sorted[0][1] / Math.max(1, total) >= 0.6) {
+      const [category, count] = sorted[0];
+      const ratio = count / total;
+      const points = Math.min(72, 30 + (count * 8) + Math.round(ratio * 18));
+      addClassificationScore(
+        scoreMap,
+        category,
+        points,
+        "classificationReasonDomainHistory",
+        `${displayCategoryName(category)} ${count}/${total}`
+      );
+    }
+  }
+
+  const folderHistory = getClassificationHistorySignal(bookmark, "folderPath", categoryNames);
+  if (folderHistory) {
+    const points = Math.min(58, 24 + (folderHistory.count * 6) + Math.round(folderHistory.ratio * 14));
+    addClassificationScore(
+      scoreMap,
+      folderHistory.category,
+      points,
+      "classificationReasonFolder",
+      `${bookmark.folderPath}: ${displayCategoryName(folderHistory.category)} ${folderHistory.count}/${folderHistory.total}`
+    );
+  }
+
+  if (bookmark.category && bookmark.category !== "未分類" && scoreMap.has(bookmark.category)) {
+    addClassificationScore(
+      scoreMap,
+      bookmark.category,
+      12,
+      "classificationReasonCurrent",
+      displayCategoryName(bookmark.category)
+    );
+  }
+
+  const suggestions = [...scoreMap.values()]
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.category.localeCompare(b.category, "ja"))
+    .slice(0, 3);
+  const top = suggestions[0];
+  const secondScore = suggestions[1]?.score || 0;
+  const margin = Math.max(0, (top?.score || 0) - secondScore);
+  const confidence = top
+    ? Math.min(98, Math.round(35 + Math.min(50, top.score * 0.55) + Math.min(13, margin * 0.22)))
+    : 0;
+  const hasSuggestion = !!top && top.score >= CLASSIFICATION_MIN_SCORE;
+  return {
+    category: hasSuggestion ? top.category : "",
+    confidence: hasSuggestion ? confidence : 0,
+    score: top?.score || 0,
+    suggestions: suggestions.map((item) => ({ category: item.category, score: item.score })),
+    reasons: hasSuggestion
+      ? [...top.reasons].sort((a, b) => b.weight - a.weight).slice(0, 4)
+      : [],
+    pageInfo
+  };
+}
+
+function getOrganizeClassificationResult(bookmark, pageInfoEntry) {
+  if (pageInfoEntry.status !== "done") return classifyBookmark(bookmark, null);
+  const cacheKey = `${bookmark.id}\u0001${bookmark.url}\u0001${bookmarksRevision}\u0001${categoryRevision}\u0001${getLanguage()}`;
+  if (!classificationResultCache.has(cacheKey)) {
+    classificationResultCache.set(cacheKey, classifyBookmark(bookmark, pageInfoEntry.value));
+  }
+  return classificationResultCache.get(cacheKey);
+}
+
 function openOrganizeSession() {
   const selected = [...selectedIds].map(getBookmarkById).filter(Boolean);
   let source = selected.length ? selected : getTrayBookmarks();
@@ -3199,8 +3700,10 @@ function openOrganizeSession() {
 }
 
 function renderOrganizeSession() {
+  const renderToken = ++organizeClassificationRenderToken;
   const bookmark = getCurrentOrganizeBookmark();
   elements.organizeCard.innerHTML = "";
+  elements.organizeSuggestion.innerHTML = "";
   elements.organizeCategoryList.innerHTML = "";
   const done = !bookmark;
   elements.organizeOpenButton.disabled = done;
@@ -3210,24 +3713,94 @@ function renderOrganizeSession() {
   if (done) {
     elements.organizeProgress.textContent = t("organizeDone");
     elements.organizeCard.append(emptyMessage(t("noOrganizeItems")));
+    elements.organizeSuggestion.hidden = true;
     return;
   }
 
+  const pageInfoEntry = getClassificationPageInfoEntry(bookmark.url);
+  const classification = getOrganizeClassificationResult(bookmark, pageInfoEntry);
   elements.organizeProgress.textContent = `${organizeIndex + 1} / ${organizeQueue.length}`;
-  elements.organizeCard.append(createOrganizeSummary(bookmark));
+  elements.organizeCard.append(createOrganizeSummary(bookmark, pageInfoEntry.value));
+  renderOrganizeClassification(classification, pageInfoEntry.status === "loading");
 
-  getCategoryNames().forEach((name) => {
+  const reviewCategoryNames = [...new Set([
+    ...classification.suggestions.map((suggestion) => suggestion.category),
+    ...getCategoryNames()
+  ])];
+  reviewCategoryNames.forEach((name) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "category-choice";
-    button.textContent = displayCategoryName(name);
+    const label = document.createElement("span");
+    label.textContent = displayCategoryName(name);
+    button.append(label);
+    if (classification.category === name) {
+      button.dataset.suggested = "true";
+      const confidence = document.createElement("span");
+      confidence.className = "classification-confidence";
+      confidence.textContent = `${classification.confidence}%`;
+      button.append(confidence);
+    }
     button.title = name;
     button.addEventListener("click", () => moveOrganizeBookmark(name));
     elements.organizeCategoryList.append(button);
   });
+
+  if (pageInfoEntry.status === "loading") {
+    pageInfoEntry.promise.finally(() => {
+      if (renderToken !== organizeClassificationRenderToken) return;
+      if (getCurrentOrganizeBookmark()?.id !== bookmark.id) return;
+      if (!elements.organizeDialog.open) return;
+      renderOrganizeSession();
+    });
+  }
 }
 
-function createOrganizeSummary(bookmark) {
+function renderOrganizeClassification(classification, loading) {
+  elements.organizeSuggestion.hidden = false;
+  elements.organizeSuggestion.dataset.loading = loading ? "true" : "false";
+  const heading = document.createElement("strong");
+  if (classification.category) {
+    heading.textContent = t("classificationSuggestion", {
+      category: displayCategoryName(classification.category),
+      confidence: classification.confidence
+    });
+  } else {
+    heading.textContent = t("classificationNoSuggestion");
+  }
+  elements.organizeSuggestion.append(heading);
+
+  const status = document.createElement("p");
+  status.className = "classification-status";
+  status.textContent = loading
+    ? t("classificationLoading")
+    : classification.pageInfo?.ok
+      ? t("classificationPageSource", {
+        detail: classification.pageInfo.title || classification.pageInfo.description || classification.pageInfo.finalUrl
+      })
+      : t("classificationPageUnavailable");
+  elements.organizeSuggestion.append(status);
+
+  if (loading && classification.category) {
+    const preliminary = document.createElement("p");
+    preliminary.className = "classification-preliminary";
+    preliminary.textContent = t("classificationPreliminary");
+    elements.organizeSuggestion.append(preliminary);
+  }
+
+  if (classification.reasons.length) {
+    const reasons = document.createElement("div");
+    reasons.className = "classification-reasons";
+    classification.reasons.forEach((reason) => {
+      const chip = document.createElement("span");
+      chip.textContent = t(reason.key, { detail: reason.detail });
+      reasons.append(chip);
+    });
+    elements.organizeSuggestion.append(reasons);
+  }
+}
+
+function createOrganizeSummary(bookmark, pageInfo = null) {
   const node = document.createElement("div");
   node.className = "organize-summary";
   node.innerHTML = `
@@ -3235,6 +3808,7 @@ function createOrganizeSummary(bookmark) {
     <div>
       <strong></strong>
       <span class="organize-url"></span>
+      <p class="organize-page-description" hidden></p>
       <div class="bookmark-tags">
         <span class="tag category-tag"></span>
         <span class="tag folder-tag"></span>
@@ -3245,6 +3819,12 @@ function createOrganizeSummary(bookmark) {
   node.querySelector(".organize-url").textContent = bookmark.url;
   node.querySelector(".category-tag").textContent = displayCategoryName(bookmark.category);
   node.querySelector(".folder-tag").textContent = bookmark.folderPath;
+  const pageDescription = compactClassificationText(pageInfo?.description || pageInfo?.headings?.[0], 280);
+  if (pageDescription) {
+    const description = node.querySelector(".organize-page-description");
+    description.textContent = pageDescription;
+    description.hidden = false;
+  }
   return node;
 }
 
