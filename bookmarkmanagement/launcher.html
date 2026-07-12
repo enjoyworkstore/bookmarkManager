@@ -18,7 +18,7 @@
           <button id="openFullButton" class="icon-button hidden" title="大きな画面で開く" aria-label="大きな画面で開く">□</button>
           <button id="batchModeButton" class="icon-button" type="button" title="一括選択モード" aria-label="一括選択モード">☑</button>
           <button id="trayModeButton" class="icon-button" type="button" title="未整理トレイ" aria-label="未整理トレイ">◇</button>
-          <button id="organizeSessionButton" class="icon-button" type="button" title="整理セッション" aria-label="整理セッション">▶</button>
+          <button id="organizeSessionButton" class="icon-button" type="button" title="分類候補を確認" aria-label="分類候補を確認">▶</button>
           <button id="domainMoveButton" class="icon-button" type="button" title="ドメイン別まとめ移動" aria-label="ドメイン別まとめ移動">◎</button>
           <button id="undoButton" class="icon-button" type="button" title="操作取り消し" aria-label="操作取り消し" disabled>↶</button>
           <button id="deleteModeButton" class="icon-button" title="削除モード" aria-label="削除モード" aria-pressed="false">⌫</button>
@@ -190,11 +190,12 @@
       <dialog id="organizeDialog" class="edit-dialog organize-dialog">
         <form method="dialog">
           <div class="dialog-header">
-            <h2>整理セッション</h2>
+            <h2>ブックマーク分類</h2>
             <button class="icon-button" value="cancel" aria-label="閉じる" title="閉じる">×</button>
           </div>
           <div id="organizeProgress" class="suggestion"></div>
           <div id="organizeCard" class="organize-card"></div>
+          <div id="organizeSuggestion" class="classification-suggestion" aria-live="polite"></div>
           <div id="organizeCategoryList" class="organize-category-list"></div>
           <div class="dialog-actions organize-actions">
             <button id="organizeDeleteButton" class="danger icon-button" value="delete" type="button" title="削除" aria-label="削除">⌫</button>

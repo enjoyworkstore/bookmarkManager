@@ -97,7 +97,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message?.type === "run-bookmark-shelf-browser-action") {
-    runBookmarkShelfBrowserAction(message.action, sender?.tab?.id)
+    runBookmarkShelfBrowserAction(message.action, sender?.tab?.id, sender?.tab?.windowId)
       .then((ok) => sendResponse({ ok }))
       .catch(() => sendResponse({ ok: false }));
     return true;
@@ -120,18 +120,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-async function runBookmarkShelfBrowserAction(action, tabId) {
+async function runBookmarkShelfBrowserAction(action, tabId, windowId) {
   if (!Number.isInteger(tabId)) return false;
   if (action === "back") {
     await chrome.tabs.goBack(tabId);
     return true;
   }
-  if (action === "forward") {
-    await chrome.tabs.goForward(tabId);
+  if (action === "next-tab") {
+    const targetWindowId = Number.isInteger(windowId)
+      ? windowId
+      : (await chrome.tabs.get(tabId)).windowId;
+    const tabs = await chrome.tabs.query({ windowId: targetWindowId });
+    if (!tabs.length) return false;
+    tabs.sort((a, b) => (Number(a.index) || 0) - (Number(b.index) || 0));
+    const currentIndex = tabs.findIndex((tab) => tab.id === tabId);
+    const nextTab = tabs[(currentIndex >= 0 ? currentIndex + 1 : 0) % tabs.length];
+    if (!Number.isInteger(nextTab?.id)) return false;
+    await chrome.tabs.update(nextTab.id, { active: true });
     return true;
   }
-  if (action === "reload") {
-    await chrome.tabs.reload(tabId);
+  if (action === "minimize-window") {
+    const targetWindowId = Number.isInteger(windowId)
+      ? windowId
+      : (await chrome.tabs.get(tabId)).windowId;
+    if (!Number.isInteger(targetWindowId)) return false;
+    await chrome.windows.update(targetWindowId, { state: "minimized" });
     return true;
   }
   return false;

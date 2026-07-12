@@ -1,5 +1,5 @@
 (() => {
-  const OVERLAY_HOST_VERSION = "2026-07-11-floating-two-modes-v25";
+  const OVERLAY_HOST_VERSION = "2026-07-11-launcher-motion-v29";
   const STORAGE_KEY = "bookmarkShelfState";
   const HOST_ID = "bookmark-shelf-overlay-host";
   const BACKDROP_ID = "bookmark-shelf-overlay-backdrop";
@@ -9,8 +9,10 @@
   const CAPTURE_ACTIVE = { capture: true, passive: false };
   const FLOATING_GESTURE_ACTIONS = [
     { action: "back", icon: "←", label: "戻る" },
-    { action: "forward", icon: "→", label: "進む" },
-    { action: "reload", icon: "↻", label: "再読込" }
+    { action: "next-tab", icon: "⇥", label: "次のタブ" },
+    { action: "scroll-bottom", icon: "⇊", label: "最下部" },
+    { action: "scroll-top", icon: "⇈", label: "最上部" },
+    { action: "minimize-window", icon: "—", label: "最小化" }
   ];
   const FLOATING_DISPLAY_MODES = new Set(["collapsed", "pins"]);
   const FLOATING_PIN_LIST_LIMIT = 24;
@@ -48,6 +50,7 @@
   let floatingGestureDockState = null;
   let floatingPinnedDockState = null;
   let floatingPinnedLoadRequestId = 0;
+  let floatingModeTransitionToken = 0;
   let currentFloatingState = { ...DEFAULT_FLOATING_SETTINGS };
 
   function getOverlay() {
@@ -63,7 +66,8 @@
     document.getElementById(BACKDROP_ID)?.remove();
   }
 
-  function removeFloatingLauncher() {
+  function removeFloatingLauncher(options = {}) {
+    if (!options.preserveTransition) floatingModeTransitionToken += 1;
     removeFloatingGestureDock();
     floatingPinnedDockState = null;
     floatingPinnedLoadRequestId += 1;
@@ -289,6 +293,12 @@
 
   async function runFloatingBrowserAction(action) {
     if (!FLOATING_GESTURE_ACTIONS.some((item) => item.action === action)) return false;
+    if (action === "scroll-top" || action === "scroll-bottom") {
+      const scrollingElement = document.scrollingElement || document.documentElement;
+      const top = action === "scroll-top" ? 0 : scrollingElement.scrollHeight;
+      window.scrollTo({ top, left: window.scrollX, behavior: "smooth" });
+      return true;
+    }
     const response = await chrome.runtime.sendMessage({
       type: "run-bookmark-shelf-browser-action",
       action
@@ -519,25 +529,29 @@
   function getFloatingPinnedDockScheme(color) {
     if (color === "light") {
       return {
-        panelBg: "rgba(255, 255, 255, 0.82)",
-        panelBorder: "rgba(15, 23, 42, 0.18)",
-        panelShadow: "0 12px 30px rgba(15, 23, 42, 0.18)",
-        itemBg: "rgba(255, 255, 255, 0.72)",
+        panelBg: "transparent",
+        panelBorder: "rgba(15, 23, 42, 0.28)",
+        panelShadow: "none",
+        itemBg: "transparent",
         itemHoverBg: "rgba(241, 245, 249, 0.96)",
-        itemBorder: "rgba(15, 23, 42, 0.14)",
-        itemHoverBorder: "rgba(37, 99, 235, 0.42)",
+        itemBorder: "transparent",
+        itemHoverBorder: "transparent",
+        controlBg: "rgba(255, 255, 255, 0.78)",
+        controlBorder: "rgba(15, 23, 42, 0.3)",
         itemColor: "#1f2937",
         mutedColor: "#64748b"
       };
     }
     return {
-      panelBg: "rgba(15, 23, 42, 0.94)",
-      panelBorder: "rgba(148, 163, 184, 0.26)",
-      panelShadow: "0 14px 34px rgba(0, 0, 0, 0.24)",
-      itemBg: "rgba(30, 41, 59, 0.82)",
+      panelBg: "transparent",
+      panelBorder: "rgba(226, 232, 240, 0.3)",
+      panelShadow: "none",
+      itemBg: "transparent",
       itemHoverBg: "rgba(51, 65, 85, 0.98)",
-      itemBorder: "rgba(148, 163, 184, 0.18)",
-      itemHoverBorder: "rgba(147, 197, 253, 0.48)",
+      itemBorder: "transparent",
+      itemHoverBorder: "transparent",
+      controlBg: "rgba(15, 23, 42, 0.82)",
+      controlBorder: "rgba(226, 232, 240, 0.34)",
       itemColor: "#e5e7eb",
       mutedColor: "#94a3b8"
     };
@@ -558,15 +572,15 @@
       "flex-direction": "column",
       gap: "6px",
       "box-sizing": "border-box",
-      padding: "6px",
+      padding: "4px",
       border: `1px solid ${scheme.panelBorder}`,
       "border-radius": "24px",
       background: scheme.panelBg,
       "box-shadow": scheme.panelShadow,
-      "backdrop-filter": "blur(12px)",
-      "-webkit-backdrop-filter": "blur(12px)",
+      "backdrop-filter": "none",
+      "-webkit-backdrop-filter": "none",
       color: scheme.itemColor,
-      "pointer-events": "auto",
+      "pointer-events": "none",
       overflow: "hidden",
       cursor: "default",
       "user-select": "none",
@@ -576,19 +590,9 @@
     const openAction = createFloatingPinnedAction({
       kind: "open",
       icon: "☰",
-      title: "Bookmark Shelf を開く",
+      title: "ドラッグで移動・クリックで Bookmark Shelf を開く",
       scheme,
       size: Math.max(34, metrics.width - 14)
-    });
-    const separator = document.createElement("div");
-    setImportantStyles(separator, {
-      all: "initial",
-      display: "block",
-      height: "1px",
-      margin: "0 5px",
-      background: scheme.panelBorder,
-      opacity: "0.9",
-      "flex-shrink": "0"
     });
     const list = document.createElement("div");
     setImportantStyles(list, {
@@ -607,7 +611,7 @@
       event.stopPropagation();
     }, { capture: true, passive: true });
 
-    panel.append(openAction.target, separator, list);
+    panel.append(openAction.target, list);
     floatingPinnedDockState = {
       panel,
       list,
@@ -621,6 +625,7 @@
   }
 
   function createFloatingPinnedAction({ kind, icon, title, bookmark = null, scheme, size }) {
+    const framedControl = kind === "open" || kind === "back";
     const target = document.createElement("button");
     target.type = "button";
     target.title = title;
@@ -633,11 +638,12 @@
       display: "grid",
       "place-items": "center",
       "box-sizing": "border-box",
-      border: `1px solid ${scheme.itemBorder}`,
+      border: `1px solid ${framedControl ? scheme.controlBorder : scheme.itemBorder}`,
       "border-radius": "999px",
-      background: scheme.itemBg,
+      background: framedControl ? scheme.controlBg : scheme.itemBg,
       color: scheme.itemColor,
       cursor: "pointer",
+      "pointer-events": "auto",
       padding: "0",
       margin: "0",
       overflow: "hidden",
@@ -652,14 +658,14 @@
     target.addEventListener("mouseenter", () => {
       setImportantStyles(target, {
         background: scheme.itemHoverBg,
-        border: `1px solid ${scheme.itemHoverBorder}`,
+        border: `1px solid ${framedControl ? scheme.controlBorder : scheme.itemHoverBorder}`,
         transform: "translateY(-1px)"
       });
     });
     target.addEventListener("mouseleave", () => {
       setImportantStyles(target, {
-        background: scheme.itemBg,
-        border: `1px solid ${scheme.itemBorder}`,
+        background: framedControl ? scheme.controlBg : scheme.itemBg,
+        border: `1px solid ${framedControl ? scheme.controlBorder : scheme.itemBorder}`,
         transform: "none"
       });
     });
@@ -749,6 +755,7 @@
 
     if (!items.length) {
       renderFloatingPinnedStatus("☆", "固定ブックマークがありません");
+      appendFloatingPinnedBackAction(size, scheme);
       return;
     }
 
@@ -773,6 +780,21 @@
       list.append(more.target);
       floatingPinnedDockState.targets.push(more);
     }
+    appendFloatingPinnedBackAction(size, scheme);
+  }
+
+  function appendFloatingPinnedBackAction(size, scheme) {
+    if (!floatingPinnedDockState) return;
+    const back = createFloatingPinnedAction({
+      kind: "back",
+      icon: "←",
+      title: "前のページに戻る",
+      scheme,
+      size
+    });
+    back.target.style.setProperty("margin-top", "4px", "important");
+    floatingPinnedDockState.list.append(back.target);
+    floatingPinnedDockState.targets.push(back);
   }
 
   function getFloatingPinnedActionAt(clientX, clientY) {
@@ -866,7 +888,7 @@
       "z-index": "2147483646",
       display: "block",
       "box-sizing": "border-box",
-      "pointer-events": "auto",
+      "pointer-events": mode === "pins" ? "none" : "auto",
       "user-select": "none",
       "-webkit-user-select": "none",
       "-webkit-touch-callout": "none",
@@ -898,7 +920,7 @@
     button.title = `Bookmark Shelf - 左クリックで開く / 右クリックで最小表示・固定一覧を切り替え / ドラッグで移動・ブラウザー操作`;
     button.setAttribute("role", "button");
     button.setAttribute("tabindex", "0");
-    button.setAttribute("aria-label", `Bookmark Shelf を開く。${toggleHint}。ドラッグで位置移動、戻る、進む、再読み込みができます。`);
+    button.setAttribute("aria-label", `Bookmark Shelf を開く。${toggleHint}。ドラッグで位置移動、戻る、次のタブ、最下部、最上部、ブラウザ最小化ができます。`);
     setImportantStyles(button, {
       all: "initial",
       position: "absolute",
@@ -985,6 +1007,7 @@
       top: rect.top,
       width: rect.width,
       height: rect.height,
+      gestureEnabled: getFloatingSettings(currentFloatingState).mode !== "pins",
       moved: false
     };
     try {
@@ -1014,14 +1037,16 @@
     if (!floatingPointerState.moved && Math.hypot(dx, dy) < FLOATING_DRAG_THRESHOLD_PX) return;
 
     floatingPointerState.moved = true;
-    createFloatingGestureDock({
-      left: floatingPointerState.left,
-      top: floatingPointerState.top,
-      right: floatingPointerState.left + floatingPointerState.width,
-      bottom: floatingPointerState.top + floatingPointerState.height,
-      width: floatingPointerState.width,
-      height: floatingPointerState.height
-    });
+    if (floatingPointerState.gestureEnabled) {
+      createFloatingGestureDock({
+        left: floatingPointerState.left,
+        top: floatingPointerState.top,
+        right: floatingPointerState.left + floatingPointerState.width,
+        bottom: floatingPointerState.top + floatingPointerState.height,
+        width: floatingPointerState.width,
+        height: floatingPointerState.height
+      });
+    }
     const next = clampFloatingPosition(
       floatingPointerState.left + dx,
       floatingPointerState.top + dy,
@@ -1036,7 +1061,9 @@
       bottom: "auto",
       transform: "none"
     });
-    const activeAction = updateFloatingGestureDock(event.clientX, event.clientY);
+    const activeAction = floatingPointerState.gestureEnabled
+      ? updateFloatingGestureDock(event.clientX, event.clientY)
+      : "";
     host.dataset.gestureAction = activeAction;
     stopFloatingEvent(event);
   }
@@ -1046,7 +1073,7 @@
     if (!host || !floatingPointerState || floatingPointerState.pointerId !== event.pointerId) return;
 
     const state = floatingPointerState;
-    const gestureAction = state.moved
+    const gestureAction = state.moved && state.gestureEnabled
       ? updateFloatingGestureDock(event.clientX, event.clientY)
       : "";
     floatingPointerState = null;
@@ -1099,6 +1126,10 @@
       const action = getFloatingPinnedActionAt(event.clientX, event.clientY);
       if (action?.kind === "bookmark") {
         openFloatingPinnedBookmark(action.bookmark, event).catch(() => {});
+        return;
+      }
+      if (action?.kind === "back") {
+        runFloatingBrowserAction("back").catch(() => {});
         return;
       }
       toggleOverlay();
@@ -1176,7 +1207,9 @@
       return;
     }
     lastFloatingContextToggleAt = now;
+    const previousMode = getFloatingSettings(currentFloatingState).mode;
     const nextMode = FLOATING_DISPLAY_MODES.has(mode) ? mode : "pins";
+    if (nextMode === previousMode) return;
     const nextCollapsed = nextMode === "collapsed";
     const revision = Date.now();
     currentFloatingState = {
@@ -1185,9 +1218,72 @@
       floatingButtonMode: nextMode,
       floatingStateRevision: revision
     };
-    removeFloatingLauncher();
-    createFloatingLauncher(currentFloatingState);
+    const transitionToken = ++floatingModeTransitionToken;
+    transitionFloatingDisplayMode(previousMode, nextMode, transitionToken).catch(() => {
+      if (transitionToken !== floatingModeTransitionToken) return;
+      removeFloatingLauncher({ preserveTransition: true });
+      createFloatingLauncher(currentFloatingState);
+    });
     setFloatingMode(nextMode, revision, { apply: false }).catch(() => {});
+  }
+
+  async function transitionFloatingDisplayMode(previousMode, nextMode, transitionToken) {
+    const previousHost = getFloatingLauncher();
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (previousHost && !reduceMotion) {
+      previousHost.style.setProperty("pointer-events", "none", "important");
+      await animateFloatingModeElement(previousHost, {
+        fromScale: 1,
+        toScale: nextMode === "collapsed" ? 0.62 : 0.88,
+        fromOpacity: 1,
+        toOpacity: 0,
+        duration: 120
+      });
+    }
+    if (transitionToken !== floatingModeTransitionToken) return;
+
+    removeFloatingLauncher({ preserveTransition: true });
+    createFloatingLauncher(currentFloatingState);
+    const nextHost = getFloatingLauncher();
+    if (!nextHost || reduceMotion) return;
+
+    await animateFloatingModeElement(nextHost, {
+      fromScale: nextMode === "pins" ? 0.56 : 1.28,
+      toScale: 1,
+      fromOpacity: 0,
+      toOpacity: 1,
+      duration: nextMode === "pins" ? 220 : 170
+    });
+  }
+
+  async function animateFloatingModeElement(element, options) {
+    if (!element?.animate) return;
+    const computedTransform = getComputedStyle(element).transform;
+    const baseTransform = computedTransform && computedTransform !== "none" ? computedTransform : "";
+    const transformAt = (scale) => `${baseTransform ? `${baseTransform} ` : ""}scale(${scale})`;
+    const settings = getFloatingSettings(currentFloatingState);
+    element.style.setProperty(
+      "transform-origin",
+      `${getFloatingSide(settings.position) === "left" ? "left" : "right"} center`,
+      "important"
+    );
+    const animation = element.animate([
+      {
+        opacity: String(options.fromOpacity),
+        transform: transformAt(options.fromScale),
+        filter: options.fromOpacity === 0 ? "blur(3px)" : "blur(0)"
+      },
+      {
+        opacity: String(options.toOpacity),
+        transform: transformAt(options.toScale),
+        filter: options.toOpacity === 0 ? "blur(3px)" : "blur(0)"
+      }
+    ], {
+      duration: options.duration,
+      easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+      fill: "none"
+    });
+    await animation.finished.catch(() => {});
   }
 
   function isFloatingCollapseClick(event, element) {
@@ -1233,14 +1329,21 @@
   }
 
   async function setFloatingCustomPosition(position, options = {}) {
+    const revision = Number(options.revision) || Date.now();
     await setFloatingStatePatch({
       floatingButtonCustomPosition: position,
-      floatingStateRevision: Date.now()
+      floatingStateRevision: revision
     }, options);
   }
 
   async function flushFloatingCustomPositionSave(position) {
-    await setFloatingCustomPosition(position);
+    const revision = Date.now();
+    currentFloatingState = {
+      ...currentFloatingState,
+      floatingButtonCustomPosition: position,
+      floatingStateRevision: revision
+    };
+    await setFloatingCustomPosition(position, { apply: false, revision });
   }
 
   async function setFloatingStatePatch(patch, options = {}) {
@@ -1295,7 +1398,7 @@
   function shouldIgnoreIncomingFloatingState(nextState = {}) {
     const currentRevision = Number(currentFloatingState.floatingStateRevision) || 0;
     const nextRevision = Number(nextState.floatingStateRevision) || 0;
-    return currentRevision > 0 && nextRevision < currentRevision;
+    return currentRevision > 0 && nextRevision <= currentRevision;
   }
 
   function loadFloatingLauncherPreference() {
